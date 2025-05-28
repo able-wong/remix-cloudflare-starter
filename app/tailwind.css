@@ -1,12 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* This is a working setup for importing Tailwind CSS v4 and DaisyUI */
+/* Please do not change */
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "daisyui";
+/* end of imports for tailwindcss and daisyui */
 
-html,
-body {
-  @apply bg-white dark:bg-gray-950;
-
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
+/* Custom styles */
+@layer base {
+  html {
+    font-family: theme('fontFamily.sans');
+    scroll-behavior: smooth;
   }
 }

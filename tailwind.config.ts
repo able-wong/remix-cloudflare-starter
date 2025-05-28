@@ -1,4 +1,10 @@
-import type { Config } from "tailwindcss";
+import type { Config } from 'tailwindcss';
+
+interface CustomConfig extends Config {
+  daisyui?: {
+    themes?: string[];
+  };
+}
 
 export default {
   content: ["./app/**/{**,.client,.server}/**/*.{js,jsx,ts,tsx}"],
@@ -6,9 +12,14 @@ export default {
     extend: {
       fontFamily: {
         sans: [
-          "Inter",
-          "ui-sans-serif",
           "system-ui",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "Noto Sans",
           "sans-serif",
           "Apple Color Emoji",
           "Segoe UI Emoji",
@@ -18,5 +29,8 @@ export default {
       },
     },
   },
-  plugins: [],
-} satisfies Config;
+  plugins: [require("daisyui")],
+  daisyui: {
+    themes: ["light", "dark"],
+  }
+} satisfies CustomConfig;
