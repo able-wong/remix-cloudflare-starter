@@ -1,0 +1,38 @@
+[
+  {
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "age": 30,
+    "role": "developer",
+    "active": true,
+    "skills": ["JavaScript", "TypeScript", "React"],
+    "joinedAt": "2024-01-15T10:30:00Z"
+  },
+  {
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "age": 28,
+    "role": "designer",
+    "active": true,
+    "skills": ["UI/UX", "Figma", "Adobe Creative Suite"],
+    "joinedAt": "2024-02-20T14:15:00Z"
+  },
+  {
+    "name": "Bob Johnson",
+    "email": "bob.johnson@example.com",
+    "age": 35,
+    "role": "manager",
+    "active": false,
+    "skills": ["Leadership", "Project Management", "Strategy"],
+    "joinedAt": "2023-11-10T09:45:00Z"
+  },
+  {
+    "name": "Alice Brown",
+    "email": "alice.brown@example.com",
+    "age": 32,
+    "role": "developer",
+    "active": true,
+    "skills": ["Python", "Machine Learning", "Data Science"],
+    "joinedAt": "2024-03-05T11:20:00Z"
+  }
+]

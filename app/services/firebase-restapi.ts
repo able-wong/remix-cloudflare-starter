@@ -1,61 +1,92 @@
 /**
  * Firebase REST API Service
+ *
  * This module provides server-side Firebase functionality using the Firebase REST API.
  * It's designed to work in Cloudflare Workers environment where Firebase Admin SDK
  * might not be compatible.
  *
- * Required Configuration:
+ * DESIGN PRINCIPLES:
+ * - Collection-agnostic: Works with any Firestore collection
+ * - Data-structure flexible: Supports any document field types
+ * - Environment-aware: Automatically configures from environment variables
+ * - Authentication-optional: Supports both public and authenticated operations
+ * - Error-resilient: Comprehensive error handling and logging
+ *
+ * CONFIGURATION:
  * - apiKey: Firebase Web API Key (from Firebase Console)
  * - projectId: Firebase Project ID
  *
- * How to get the required configuration:
+ * Get configuration from Firebase Console:
  * 1. Go to Firebase Console (https://console.firebase.google.com)
- * 2. Select your project
- * 3. Go to Project Settings (gear icon) > General
- * 4. Scroll down to "Your apps" section
- * 5. Click on the web app (</>) icon
- *    - If no web app exists, create one by clicking "Add app" and selecting web
- * 6. Copy the apiKey and projectId values
+ * 2. Select your project > Project Settings > General
+ * 3. Scroll to "Your apps" section, click web app icon (</>)
+ * 4. Copy the apiKey and projectId values
  *
- * Usage Scenarios:
- * - Server-side Firebase operations in Cloudflare Workers
- * - Remix actions for handling form submissions and data mutations
- * - Token verification for authentication in Remix loaders and actions
- * - User profile updates through Remix form actions
- * - Any Firebase operations that need to be performed server-side
+ * USAGE PATTERNS:
  *
- * Security Considerations:
- * - This service uses Firebase REST API which requires the Web API Key
- * - The API Key is safe to use in server-side code
- * - All operations require a valid Firebase ID token
- * - Token verification is performed before any user data operations
- *
- * Example Usage in Remix:
+ * 1. AUTHENTICATED ACCESS:
  * ```typescript
+ * import { createFirebaseRestApi } from '~/services/firebase-restapi';
  * import { getServerEnv } from '~/utils/env';
  *
  * export async function action({ request, context }: ActionFunctionArgs) {
- *   const env = getServerEnv(context);
- *   const firebaseRestApi = new FirebaseRestApi({
- *     apiKey: JSON.parse(env.FIREBASE_CONFIG).apiKey,
- *     projectId: env.FIREBASE_PROJECT_ID
- *   });
- *
- *   // Get the ID token from the request
+ *   const serverEnv = getServerEnv(context);
  *   const idToken = request.headers.get('Authorization')?.split('Bearer ')[1];
+ *
  *   if (!idToken) {
- *     throw new Error('No ID token provided');
+ *     throw new Error('Authentication required');
  *   }
  *
- *   // Verify the token and get user ID
- *   const { uid } = await firebaseRestApi.verifyIdToken(idToken);
+ *   const firebaseApi = await createFirebaseRestApi(serverEnv, idToken);
+ *   // Token automatically validated, ready to use
  *
- *   // Now you can use the verified uid for your business logic
- *   // For example, query/update user data in Firestore using REST API
+ *   const userBooks = await firebaseApi.getCollection('user-books');
+ *   const uid = firebaseApi.getUid(); // Get the validated user ID
  *
- *   return json({ success: true, userId: uid });
+ *   return json({ success: true, userId: uid, books: userBooks });
  * }
  * ```
+ *
+ * 2. PUBLIC ACCESS (No Authentication):
+ * ```typescript
+ * export async function loader({ context }: LoaderFunctionArgs) {
+ *   const serverEnv = getServerEnv(context);
+ *
+ *   // No idToken needed for public access
+ *   const firebaseApi = await createFirebaseRestApi(serverEnv);
+ *
+ *   // Access public collections (controlled by Firebase Security Rules)
+ *   const publicBooks = await firebaseApi.getCollection('public-books');
+ *
+ *   return json({ books: publicBooks });
+ * }
+ * ```
+ *
+ * 3. SERVICE LAYER INTEGRATION:
+ * ```typescript
+ * class BookService {
+ *   constructor(private firebaseApi: FirebaseRestApi) {}
+ *
+ *   async getAllBooks() {
+ *     const response = await this.firebaseApi.getCollection('books');
+ *     return response.documents?.map(doc => this.mapToBook(doc)) || [];
+ *   }
+ * }
+ * ```
+ *
+ * FIRESTORE DATA STRUCTURE:
+ * The API automatically handles Firestore's field type format:
+ * - Strings: { stringValue: "text" }
+ * - Numbers: { integerValue: "123" } or { doubleValue: 45.67 }
+ * - Booleans: { booleanValue: true }
+ * - Arrays: { arrayValue: { values: [...] } }
+ * - Timestamps: { timestampValue: "2023-01-01T00:00:00Z" }
+ *
+ * SECURITY CONSIDERATIONS:
+ * - Firebase Web API Key is safe to use in server-side code
+ * - Authentication is optional - use for public vs authenticated operations
+ * - Firebase Security Rules control access to collections and documents
+ * - Token verification is performed automatically when idToken is provided
  */
 
 import { LoggerFactory, type Logger } from '~/utils/logger';
@@ -67,14 +98,40 @@ interface FirebaseConfig {
   projectId: string;
 }
 
+export interface FirestoreValue {
+  stringValue?: string;
+  booleanValue?: boolean;
+  integerValue?: string;
+  doubleValue?: number;
+  timestampValue?: string;
+  arrayValue?: {
+    values: FirestoreValue[];
+  };
+}
+
+export interface FirestoreDocument {
+  name: string;
+  fields: Record<string, FirestoreValue>;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface FirestoreCollectionResponse {
+  documents?: FirestoreDocument[];
+  nextPageToken?: string;
+}
+
 export class FirebaseRestApi {
   private fetchImpl: FetchFunction;
   private config: FirebaseConfig;
   private logger: Logger;
   private boundFetch: FetchFunction;
+  private idToken?: string;
+  private uid: string;
 
   constructor(
     config: FirebaseConfig,
+    idToken?: string,
     fetchImpl: FetchFunction = fetch,
     logger?: Logger,
   ) {
@@ -100,14 +157,51 @@ export class FirebaseRestApi {
       });
     // Bind fetch to global context for Cloudflare Workers
     this.boundFetch = fetchImpl.bind(globalThis);
+
+    // Store the idToken for later validation
+    this.idToken = idToken;
+    this.uid = ''; // Will be set after validation
   }
 
   /**
-   * Verify Firebase ID token using Firebase REST API
-   * @param idToken - The Firebase ID token to verify
-   * @returns Object containing the user ID
+   * Validates the ID token provided in the constructor.
+   * This method should be called after construction to ensure the token is valid.
+   * Only validates if a token was provided.
+   * @returns Promise<void> - Resolves if token is valid, throws error if invalid
    */
-  async verifyIdToken(idToken: string): Promise<{ uid: string }> {
+  async validateIdToken(): Promise<void> {
+    if (!this.idToken) {
+      return; // Skip validation for public access
+    }
+    await this.verifyAndSetIdToken(this.idToken);
+  }
+
+  /**
+   * Gets the validated user ID
+   * @returns string - The user ID from the validated token
+   * @throws Error - If token hasn't been validated yet
+   */
+  getUid(): string {
+    if (!this.uid) {
+      throw new Error(
+        'ID token has not been validated yet. Call validateIdToken() first.',
+      );
+    }
+    return this.uid;
+  }
+
+  /**
+   * VERIFY FIREBASE ID TOKEN AND SET UID
+   *
+   * Verifies a Firebase ID token and sets the authenticated user's UID internally.
+   * This method is essential for implementing authentication in server-side operations.
+   *
+   * @param idToken - The Firebase ID token to verify (obtained from client-side Firebase Auth)
+   * @returns Promise<void> - Resolves when token is verified and UID is set
+   *
+   * @throws Error - If token is invalid, expired, or verification fails
+   */
+  async verifyAndSetIdToken(idToken: string): Promise<void> {
     const response = await this.boundFetch(
       `https://www.googleapis.com/identitytoolkit/v3/relyingparty/getAccountInfo?key=${this.config.apiKey}`,
       {
@@ -138,61 +232,242 @@ export class FirebaseRestApi {
       throw new Error('No user found for the provided token');
     }
 
-    return { uid: data.users[0].localId };
+    // Set the uid internally
+    this.uid = data.users[0].localId;
   }
 
   /**
-   * Example of how to update user profile using Firebase REST API
-   * This is commented out as it's app-specific but serves as an example
-   * @param userId - The user ID to update
-   * @param idToken - The Firebase ID token for authentication
+   * GET ALL DOCUMENTS FROM COLLECTION
+   *
+   * Retrieves all documents from a specified Firestore collection.
+   * This is the most commonly used method for reading data.
+   * Supports both public and authenticated access based on Firebase Security Rules.
+   *
+   * @param collectionName - Name of the Firestore collection (e.g., 'books', 'users', 'orders')
+   * @returns Promise<FirestoreCollectionResponse> - Object containing documents array and optional pagination token
+   *
+   * @throws Error - If collection access fails or Firebase Security Rules deny access
    */
-  /*
-  async updateUserProfile(userId: string, idToken: string): Promise<void> {
+  async getCollection(
+    collectionName: string,
+  ): Promise<FirestoreCollectionResponse> {
+    const headers = this.prepareHeaders(false); // Public access allowed
+
     const response = await this.boundFetch(
-      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/user_profiles/${userId}?updateMask.fieldPaths=isFullVersion&updateMask.fieldPaths=updatedAt`,
+      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${collectionName}`,
       {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`,
-        },
-        body: JSON.stringify({
-          fields: {
-            isFullVersion: { booleanValue: true },
-            updatedAt: { timestampValue: new Date().toISOString() },
-          },
-        }),
+        method: 'GET',
+        headers,
       },
     );
 
     if (!response.ok) {
       const error = await response.json();
-      this.logger.error('Failed to update user profile', {
+      this.logger.error('Failed to get collection', {
         error: JSON.stringify(error),
-        action: 'update_profile',
+        collectionName,
+        action: 'get_collection',
       });
-      throw new Error(
-        `Failed to update user profile: ${JSON.stringify(error)}`,
-      );
+      throw new Error(`Failed to get collection: ${JSON.stringify(error)}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * GET SINGLE DOCUMENT
+   *
+   * Retrieves a specific document from Firestore using its document path.
+   * Ideal for fetching individual records by ID.
+   * Supports both public and authenticated access based on Firebase Security Rules.
+   *
+   * @param documentPath - Full path to the document (e.g., 'books/book123', 'users/user456')
+   * @returns Promise<FirestoreDocument> - The requested document with all its fields
+   *
+   * @throws Error - If document doesn't exist, access is denied, or path is invalid
+   */
+  async getDocument(documentPath: string): Promise<FirestoreDocument> {
+    const headers = this.prepareHeaders(false); // Public access allowed
+
+    const response = await this.boundFetch(
+      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${documentPath}`,
+      {
+        method: 'GET',
+        headers,
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      this.logger.error('Failed to get document', {
+        error: JSON.stringify(error),
+        documentPath,
+        action: 'get_document',
+      });
+      throw new Error(`Failed to get document: ${JSON.stringify(error)}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * CREATE NEW DOCUMENT
+   *
+   * Creates a new document in the specified Firestore collection.
+   * Requires authentication - ID token must be provided during construction.
+   *
+   * @param collectionName - Name of the collection to create document in
+   * @param data - Document data in Firestore format (with field types)
+   * @returns Promise<FirestoreDocument> - The created document with generated ID and timestamps
+   *
+   * @throws Error - If authentication fails, validation fails, or creation is denied
+   */
+  async createDocument(
+    collectionName: string,
+    data: Partial<FirestoreDocument>,
+  ): Promise<FirestoreDocument> {
+    const headers = this.prepareHeaders(true); // Authentication required
+
+    const response = await this.boundFetch(
+      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${collectionName}`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      this.logger.error('Failed to create document', {
+        error: JSON.stringify(error),
+        collectionName,
+        action: 'create_document',
+      });
+      throw new Error(`Failed to create document: ${JSON.stringify(error)}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * UPDATE EXISTING DOCUMENT
+   *
+   * Updates specific fields in an existing Firestore document.
+   * Only updates the fields provided - other fields remain unchanged.
+   * Requires authentication - ID token must be provided during construction.
+   *
+   * @param documentPath - Full path to the document (e.g., 'books/book123')
+   * @param data - Partial document data with only fields to update
+   * @returns Promise<FirestoreDocument> - The updated document with new updateTime
+   *
+   * @throws Error - If document doesn't exist, authentication fails, or update is denied
+   */
+  async updateDocument(
+    documentPath: string,
+    data: Partial<FirestoreDocument>,
+  ): Promise<FirestoreDocument> {
+    const headers = this.prepareHeaders(true); // Authentication required
+
+    const response = await this.boundFetch(
+      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${documentPath}`,
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(data),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      this.logger.error('Failed to update document', {
+        error: JSON.stringify(error),
+        documentPath,
+        action: 'update_document',
+      });
+      throw new Error(`Failed to update document: ${JSON.stringify(error)}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * DELETE DOCUMENT
+   *
+   * Delete a document from Firestore.
+   * Requires authentication - ID token must be provided during construction.
+   *
+   * @param documentPath - Full path to the document (e.g., 'books/book123')
+   * @throws Error - If document doesn't exist, authentication fails, or deletion is denied
+   */
+  async deleteDocument(documentPath: string): Promise<void> {
+    const headers = this.prepareHeaders(true); // Authentication required
+
+    const response = await this.boundFetch(
+      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${documentPath}`,
+      {
+        method: 'DELETE',
+        headers,
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      this.logger.error('Failed to delete document', {
+        error: JSON.stringify(error),
+        documentPath,
+        action: 'delete_document',
+      });
+      throw new Error(`Failed to delete document: ${JSON.stringify(error)}`);
     }
   }
-  */
+
+  /**
+   * Internal method to set the UID after token validation
+   * Used by the factory function to set private properties
+   */
+  private setUid(uid: string): void {
+    this.uid = uid;
+  }
+
+  /**
+   * Prepares headers for Firebase API requests
+   * Adds Authorization header only if idToken is provided
+   * @param requireAuth - If true, throws error when no idToken is available
+   * @returns Headers object for fetch request
+   */
+  private prepareHeaders(requireAuth: boolean = false): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.idToken) {
+      headers.Authorization = `Bearer ${this.idToken}`;
+    } else if (requireAuth) {
+      throw new Error(
+        'Authentication required. ID token must be provided for this operation.',
+      );
+    }
+
+    return headers;
+  }
 }
 
 /**
- * Helper function to create FirebaseRestApi instance from server environment variables
+ * Helper function to create FirebaseRestApi instance from server environment variables with automatic token validation
  * @param serverEnv - Server environment variables from getServerEnv()
+ * @param idToken - Firebase ID token for authentication
  * @param fetchImpl - Optional fetch implementation
  * @param logger - Optional logger instance
- * @returns FirebaseRestApi instance
+ * @returns Promise<FirebaseRestApi> - Initialized Firebase REST API instance
  * @throws Error if required Firebase environment variables are not available
  */
-export function createFirebaseRestApi(
+export async function createFirebaseRestApi(
   serverEnv: { FIREBASE_CONFIG?: string; FIREBASE_PROJECT_ID?: string },
+  idToken?: string,
   fetchImpl?: FetchFunction,
   logger?: Logger,
-): FirebaseRestApi {
+): Promise<FirebaseRestApi> {
   if (!serverEnv.FIREBASE_CONFIG) {
     throw new Error(
       'FIREBASE_CONFIG environment variable is not set. Please ensure it is configured for Firebase functionality.',
@@ -218,12 +493,20 @@ export function createFirebaseRestApi(
     throw new Error('FIREBASE_CONFIG is missing required apiKey property.');
   }
 
-  return new FirebaseRestApi(
+  const instance = new FirebaseRestApi(
     {
       apiKey: firebaseConfig.apiKey,
       projectId: serverEnv.FIREBASE_PROJECT_ID,
     },
+    idToken,
     fetchImpl,
     logger,
   );
+
+  // Validate token if provided
+  if (idToken) {
+    await instance.verifyAndSetIdToken(idToken);
+  }
+
+  return instance;
 }

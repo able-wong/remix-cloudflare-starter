@@ -1,23 +1,30 @@
-# Remix Cloudflare Firebase Starter
+# Remix Cloudflare Starter
 
-A modern full-stack web application boilerplate featuring **Remix**, **Cloudflare Pages**, and **Firebase** integration. Get from zero to production-ready application in minutes.
+A modern full-stack web application boilerplate featuring **Remix** and **Cloudflare Pages** with optional **Firebase** integration. Get from zero to production-ready application in minutes.
 
 ## 🚀 What You Get
 
 - **Full-stack capabilities** with Remix server actions and loaders
 - **Global edge deployment** on Cloudflare Pages
-- **Firebase integration** for authentication, database, and storage
+- **Optional Firebase integration** for authentication, database, and storage
 - **Modern UI** with TailwindCSS v4 + DaisyUI v5
 - **Type safety** with TypeScript
 - **Testing setup** with Jest
 - **Development tools** configured and ready
 
-## 📋 Prerequisites
+## 🎯 Next Steps
+
+1. **Customize the UI** - Edit components in `app/components/`
+2. **Add routes** - Create new files in `app/routes/`
+3. **Business logic** - Add services in `app/services/`
+4. **Add tests** - Create tests in `app/__tests__/`
+5. **Setup Firebase** (optional) - See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for complete configuration
+
+## Prerequisites
 
 - **Node.js 18+**
 - **npm**
 - **Wrangler CLI**: `npm install -g wrangler`
-- **Firebase CLI** (optional): `npm install -g firebase-tools` - Only needed if using Firebase features
 
 ## ⚡ Quick Start
 
@@ -59,30 +66,11 @@ Open [http://localhost:5173](http://localhost:5173) to see your app running!
 
 ### 2. Firebase Integration (Optional)
 
-**Only needed if you want authentication, database, or storage.**
+**Firebase provides authentication, database, and storage services.**
 
-1. **Create Firebase Project:**
-   - Go to [Firebase Console](https://console.firebase.google.com/)
-   - Create new project
-   - Enable services you need:
-     - **Authentication** → Configure sign-in methods
-     - **Firestore Database** → Create database
-     - **Storage** → Set up storage bucket
+> 📖 **Complete Setup Guide**: For Firebase configuration, see [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)
 
-2. **Configure Environment Variables:**
-
-   ```bash
-   # Copy template
-   cp .dev.vars.example .dev.vars
-
-   # Edit .dev.vars with your configuration:
-   # - APP_NAME: Your application name (used for logging)
-   # - Firebase config: Get values from Firebase Project Settings → General → Your apps
-   ```
-
-3. **Add to Cloudflare Pages:**
-   - Go to your Pages project → Settings → Environment variables
-   - Add all variables from `.dev.vars` as production secrets
+If you don't need Firebase, you can skip this step and use the application as a static Remix app on Cloudflare Pages.
 
 ## 🔧 Development Commands
 
@@ -101,7 +89,7 @@ npm run typecheck   # TypeScript checking
 ```text
 app/
 ├── routes/          # Remix routes (pages & API)
-├── services/        # Business logic & Firebase integration
+├── services/        # Business logic (includes optional Firebase integration)
 ├── components/      # Reusable UI components
 ├── utils/           # Utility functions
 └── __tests__/       # Test files
@@ -114,7 +102,7 @@ functions/           # Cloudflare Pages functions
 
 - **Framework:** Remix on Cloudflare Pages
 - **Frontend:** React 18, TypeScript, TailwindCSS v4, DaisyUI v5
-- **Backend:** Firebase (Auth, Firestore, Storage)
+- **Backend:** Optional Firebase (Auth, Firestore, Storage)
 - **Build:** Vite
 - **Testing:** Jest
 - **Deployment:** Cloudflare Pages with global edge network
@@ -135,31 +123,22 @@ After deployment, check:
 - Ensure Wrangler is authenticated: `wrangler auth login`
 - Check project name matches in `wrangler.jsonc`
 
-**Firebase Issues:**
-
-- Verify environment variables are set in both `.dev.vars` and Cloudflare Pages
-- Check Firebase project permissions and API keys
-
 **Development Issues:**
 
 - Clear cache: `rm -rf node_modules package-lock.json && npm install`
 - Check Node.js version: `node --version` (should be 18+)
 
-## 🎯 Next Steps
+**Firebase Issues:**
 
-1. **Customize the UI** - Edit components in `app/components/`
-2. **Add routes** - Create new files in `app/routes/`
-3. **Business logic** - Add services in `app/services/`
-4. **Configure Firebase** - Set up authentication and database rules
-5. **Add tests** - Create tests in `app/__tests__/`
+- See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for complete Firebase troubleshooting
 
 ## 📚 Resources
 
 - [Remix Documentation](https://remix.run/docs)
 - [Cloudflare Pages](https://developers.cloudflare.com/pages/)
-- [Firebase Documentation](https://firebase.google.com/docs)
 - [TailwindCSS](https://tailwindcss.com/docs)
 - [DaisyUI Components](https://daisyui.com/components/)
+- [Firebase Setup Guide](./FIREBASE_SETUP.md) (optional)
 
 ## 🤝 Contributing
 
