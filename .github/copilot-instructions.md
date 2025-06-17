@@ -246,6 +246,7 @@ export async function action({ context }: ActionFunctionArgs) {
 - **Leverage existing capabilities** - Always check framework/library capabilities before creating custom solutions
 - **Simplify when possible** - Prefer simple, direct approaches over complex abstractions
 - **Follow established patterns** - Use existing project patterns and services as templates
+- **Implementation plans for AI assistants** - When asked for implementation plans, focus on technical approach and architecture rather than timeline phases, since the plan is primarily for AI code generation assistance
 
 ## Project Structure
 
