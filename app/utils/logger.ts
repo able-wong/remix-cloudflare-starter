@@ -1,51 +1,37 @@
 /**
  * Enterprise Logger for Remix + Cloudflare + New Relic
  *
- * This logger provides structured JSON logging optimized for New Relic ingestion
- * and Cloudflare Workers environment. Uses pino for high performance.
+ * Provides structured JSON logging with automatic serialization of complex objects.
  *
  * USAGE EXAMPLES:
  *
- * 1. Context-aware logger (PRIMARY PATTERN for routes):
- *    import { createContextLogger } from '~/utils/logger';
+ * Context-aware logging (primary pattern for routes):
+ *   import { createContextLogger } from '~/utils/logger';
  *
- *    export async function loader({ context }: LoaderFunctionArgs) {
- *      const logger = createContextLogger(context);
- *      logger.info('Processing request', { userId: '123' });
- *      return json({});
- *    }
+ *   export async function loader({ context }: LoaderFunctionArgs) {
+ *     const logger = createContextLogger(context);
+ *     logger.info('Processing request', {
+ *       userId: '123',
+ *       timestamp: new Date(),
+ *       error: new Error('Something went wrong'),
+ *       metadata: { nested: 'object' }
+ *     });
+ *   }
  *
- * 2. Service with dependency injection:
- *    import { LoggerFactory, type Logger } from '~/utils/logger';
+ * Service with dependency injection:
+ *   class MyService {
+ *     constructor(private logger = LoggerFactory.createLogger({ service: 'my-service' })) {}
+ *   }
  *
- *    class MyService {
- *      constructor(private logger?: Logger) {
- *        this.logger = logger || LoggerFactory.createLogger({
- *          service: 'my-service',
- *          level: 'info'
- *        });
- *      }
- *    }
- *
- * 3. Testing:
- *    const mockLogger: Logger = {
- *      error: jest.fn(), warn: jest.fn(),
- *      info: jest.fn(), debug: jest.fn(),
- *    };
- *    const service = new MyService(mockLogger);
- *
- * 4. Environment-specific config:
- *    const logger = LoggerFactory.createLogger({
- *      service: 'api-service',
- *      level: 'debug',
- *      environment: 'development',
- *      enableNewRelicFormat: false
- *    });
+ * Testing:
+ *   const mockLogger: Logger = {
+ *     error: jest.fn(), warn: jest.fn(),
+ *     info: jest.fn(), debug: jest.fn(),
+ *   };
  */
 import pino from 'pino';
 import { getClientEnv } from './env';
 
-// Import CloudflareContext type
 type CloudflareContext = {
   cloudflare?: {
     env?: Partial<Record<string, string>>;
@@ -53,11 +39,18 @@ type CloudflareContext = {
   env?: Partial<Record<string, string>>;
 };
 
-// Common types
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogContext = Record<string, string | number | boolean | undefined>;
+export type LogValue =
+  | string
+  | number
+  | boolean
+  | undefined
+  | Date
+  | Error
+  | object
+  | unknown[];
+export type LogContext = Record<string, LogValue>;
 
-// Standard logger interface that all services should expect
 export interface Logger {
   error: (message: string, context?: LogContext) => void;
   warn: (message: string, context?: LogContext) => void;
@@ -65,7 +58,6 @@ export interface Logger {
   debug: (message: string, context?: LogContext) => void;
 }
 
-// Configuration interface for the logger factory
 export interface LoggerConfig {
   level?: LogLevel;
   service?: string;
@@ -73,28 +65,17 @@ export interface LoggerConfig {
   enableNewRelicFormat?: boolean;
 }
 
-// Factory class for creating logger instances
 export class LoggerFactory {
   private static getLogLevel(config?: LoggerConfig): LogLevel {
-    if (config?.level) {
-      return config.level;
-    }
-
-    // Default environment-aware log levels
-    if (
-      typeof process !== 'undefined' &&
+    if (config?.level) return config.level;
+    return typeof process !== 'undefined' &&
       process.env.NODE_ENV === 'production'
-    ) {
-      return 'warn';
-    }
-    return 'debug';
+      ? 'warn'
+      : 'debug';
   }
 
   private static getEnvironment(config?: LoggerConfig): string {
-    if (config?.environment) {
-      return config.environment;
-    }
-
+    if (config?.environment) return config.environment;
     return typeof process !== 'undefined' &&
       process.env.NODE_ENV === 'production'
       ? 'production'
@@ -107,9 +88,28 @@ export class LoggerFactory {
     const service = config?.service || 'remix-app';
     const enableNewRelicFormat = config?.enableNewRelicFormat ?? true;
 
+    const serialize = (
+      context: LogContext,
+    ): Record<string, string | number | boolean> => {
+      const serialized: Record<string, string | number | boolean> = {};
+      for (const [key, value] of Object.entries(context)) {
+        if (value === undefined) {
+          continue;
+        } else if (value instanceof Error) {
+          serialized[key] = value.message;
+        } else if (value instanceof Date) {
+          serialized[key] = value.toISOString();
+        } else if (typeof value === 'object' || Array.isArray(value)) {
+          serialized[key] = JSON.stringify(value);
+        } else {
+          serialized[key] = value;
+        }
+      }
+      return serialized;
+    };
+
     const pinoLogger = pino({
       level,
-      // Conditional New Relic formatting
       ...(enableNewRelicFormat && {
         formatters: {
           level: (label) => ({ level: label }),
@@ -121,11 +121,7 @@ export class LoggerFactory {
           }),
         },
       }),
-      // Optimize for Cloudflare Workers environment
-      browser: {
-        asObject: true,
-      },
-      // Custom serializers for common objects
+      browser: { asObject: true },
       serializers: {
         error: pino.stdSerializers.err,
         request: pino.stdSerializers.req,
@@ -136,21 +132,20 @@ export class LoggerFactory {
     // Return adapter that matches our Logger interface
     return {
       error: (message: string, context?: LogContext) => {
-        pinoLogger.error(context || {}, message);
+        pinoLogger.error(context ? serialize(context) : {}, message);
       },
       warn: (message: string, context?: LogContext) => {
-        pinoLogger.warn(context || {}, message);
+        pinoLogger.warn(context ? serialize(context) : {}, message);
       },
       info: (message: string, context?: LogContext) => {
-        pinoLogger.info(context || {}, message);
+        pinoLogger.info(context ? serialize(context) : {}, message);
       },
       debug: (message: string, context?: LogContext) => {
-        pinoLogger.debug(context || {}, message);
+        pinoLogger.debug(context ? serialize(context) : {}, message);
       },
     };
   }
 
-  // Create a test logger that's easy to mock
   static createTestLogger(): Logger {
     return {
       error: () => {},
@@ -169,25 +164,51 @@ export class LoggerFactory {
     const shouldLog = (logLevel: LogLevel) =>
       levels[logLevel] >= currentLevelNum;
 
+    const serialize = (
+      context: LogContext,
+    ): Record<string, string | number | boolean> => {
+      const serialized: Record<string, string | number | boolean> = {};
+      for (const [key, value] of Object.entries(context)) {
+        if (value === undefined) {
+          continue;
+        } else if (value instanceof Error) {
+          serialized[key] = value.message;
+        } else if (value instanceof Date) {
+          serialized[key] = value.toISOString();
+        } else if (typeof value === 'object' || Array.isArray(value)) {
+          serialized[key] = JSON.stringify(value);
+        } else {
+          serialized[key] = value;
+        }
+      }
+      return serialized;
+    };
+
     return {
       error: (message: string, context?: LogContext) => {
         if (shouldLog('error')) {
-          console.error(`[ERROR] ${message}`, context || {});
+          console.error(
+            `[ERROR] ${message}`,
+            context ? serialize(context) : {},
+          );
         }
       },
       warn: (message: string, context?: LogContext) => {
         if (shouldLog('warn')) {
-          console.warn(`[WARN] ${message}`, context || {});
+          console.warn(`[WARN] ${message}`, context ? serialize(context) : {});
         }
       },
       info: (message: string, context?: LogContext) => {
         if (shouldLog('info')) {
-          console.info(`[INFO] ${message}`, context || {});
+          console.info(`[INFO] ${message}`, context ? serialize(context) : {});
         }
       },
       debug: (message: string, context?: LogContext) => {
         if (shouldLog('debug')) {
-          console.debug(`[DEBUG] ${message}`, context || {});
+          console.debug(
+            `[DEBUG] ${message}`,
+            context ? serialize(context) : {},
+          );
         }
       },
     };
@@ -195,8 +216,8 @@ export class LoggerFactory {
 }
 
 /**
- * Create a context-aware logger that uses environment variables
- * Use this in Remix loaders/actions where you have access to context
+ * Create a context-aware logger that uses environment variables.
+ * Use this in Remix loaders/actions where you have access to context.
  */
 export function createContextLogger(
   context: CloudflareContext,
@@ -209,30 +230,9 @@ export function createContextLogger(
       ...config,
     });
   } catch {
-    // Fallback if context is not available or env fails
     return LoggerFactory.createLogger({
       service: 'remix-cloudflare-app',
       ...config,
     });
   }
 }
-
-/**
- * EXPORTS:
- *
- * - LoggerFactory: Create custom logger instances
- * - createContextLogger: Create logger using environment context (PRIMARY METHOD for routes)
- * - Logger interface: For TypeScript typing and dependency injection
- * - LoggerConfig interface: For configuring logger instances
- *
- * BEST PRACTICES:
- *
- * ✅ DO: Use createContextLogger(context) in loaders/actions (primary pattern)
- * ✅ DO: Use dependency injection in services with LoggerFactory
- * ✅ DO: Use structured logging with context objects
- * ✅ DO: Mock Logger interface in tests
- *
- * ❌ DON'T: Create global/default loggers (breaks request isolation)
- * ❌ DON'T: Log sensitive data (passwords, tokens, etc.)
- * ❌ DON'T: Use console.log directly in production code
- */
