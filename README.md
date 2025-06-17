@@ -75,8 +75,9 @@ Open [http://localhost:5173](http://localhost:5173) to see your app running!
    # Copy template
    cp .dev.vars.example .dev.vars
 
-   # Edit .dev.vars with your Firebase config
-   # Get values from Firebase Project Settings → General → Your apps
+   # Edit .dev.vars with your configuration:
+   # - APP_NAME: Your application name (used for logging)
+   # - Firebase config: Get values from Firebase Project Settings → General → Your apps
    ```
 
 3. **Add to Cloudflare Pages:**

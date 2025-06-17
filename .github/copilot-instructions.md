@@ -27,10 +27,12 @@ Deployed on Cloudflare Pages with Firebase backend (auth, database, storage).
 
 ### Firebase Integration
 
+- **Environment Setup**: Before working on Firebase code, verify FIREBASE environment variables exist in `.dev.vars`. If missing, guide users through Firebase project setup and configuration retrieval.
+- **Firebase Tools**: Use `firebase-tools` CLI for project setup, database seeding, and administrative tasks (not part of application code)
+- **Optional Setup**: Firebase integration is only needed when using authentication, database, or storage features
 - Environment variables: Copy `.dev.vars.example` to `.dev.vars` and populate Firebase configuration
 - Add same variables as secrets in Cloudflare Pages project settings
 - Firebase services: Authentication, Firestore Database, Storage
-- See "Firebase Integration Patterns" section for detailed implementation guidance
 
 ## Environment Variables
 
@@ -67,6 +69,10 @@ export async function action({ context }: ActionFunctionArgs) {
 - **Minimal configuration** - Only include necessary environment variables
 - **Client vs Server separation** - Use `getClientEnv` for browser-safe config only
 - **Standard patterns** - Follow established library configuration patterns (e.g., Firebase client config)
+- **Available variables**:
+  - `APP_NAME`: Application name for logging (optional, defaults to 'remix-cloudflare-app')
+  - `FIREBASE_CONFIG`: Client-safe Firebase configuration (optional, only needed for Firebase features)
+  - `FIREBASE_PROJECT_ID`: Server-side Firebase project identifier (optional, only needed for Firebase features)
 
 ## React Best Practices
 
@@ -210,12 +216,13 @@ export async function action({ context }: ActionFunctionArgs) {
   - Implement proper user authorization checks before data operations
 
 - **Development Workflow**:
-  1. Set up environment variables using `.dev.vars` file
-  2. Configure Firebase project and enable required services
-  3. Set up Firebase Security Rules before deploying
-  4. Test authentication flows in development
-  5. Verify server-side token validation works correctly
-  6. Test Firebase operations with proper error handling
+  1. **Environment Check**: Verify `.dev.vars` contains required FIREBASE variables before proceeding with Firebase-related work
+  2. **Firebase Project Setup**: If variables missing, help users create Firebase project at console.firebase.google.com and obtain configuration from Project Settings → General → Your apps
+  3. **Use firebase-tools**: Install (`npm install -g firebase-tools`) for project setup, database seeding, security rules deployment, and administrative tasks (separate from app code)
+  4. Set up Firebase Security Rules before deploying
+  5. Test authentication flows in development
+  6. Verify server-side token validation works correctly
+  7. Test Firebase operations with proper error handling
 
 ### Feature Planning Guidelines
 
