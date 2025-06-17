@@ -7,6 +7,7 @@
 	"name": "remix-cloudflare-starter",
 	"compatibility_date": "2025-05-28",
 	"pages_build_output_dir": "./build/client",
+	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
 		"enabled": true
 	}
