@@ -73,5 +73,41 @@ describe('Firebase Client Service', () => {
       });
       expect(result).toBe(mockFirebaseApp);
     });
+
+    it('should throw error when firebaseConfig is null', () => {
+      expect(() => initializeAndGetFirebaseClient(null)).toThrow(
+        'Firebase configuration is not available. Please ensure FIREBASE_CONFIG environment variable is set with a valid Firebase configuration object.',
+      );
+    });
+
+    it('should throw error when firebaseConfig is undefined', () => {
+      expect(() => initializeAndGetFirebaseClient(undefined)).toThrow(
+        'Firebase configuration is not available. Please ensure FIREBASE_CONFIG environment variable is set with a valid Firebase configuration object.',
+      );
+    });
+
+    it('should throw error when firebaseConfig is missing required properties', () => {
+      const incompleteConfig = {
+        apiKey: 'test-api-key',
+        // Missing other required properties
+      } as unknown as FirebaseConfig;
+
+      expect(() => initializeAndGetFirebaseClient(incompleteConfig)).toThrow(
+        'Firebase configuration is missing required properties: authDomain, projectId, storageBucket, messagingSenderId, appId. Please ensure your FIREBASE_CONFIG is complete.',
+      );
+    });
+
+    it('should throw error when firebaseConfig is missing some properties', () => {
+      const incompleteConfig = {
+        apiKey: 'test-api-key',
+        authDomain: 'test-auth-domain',
+        projectId: 'test-project-id',
+        // Missing storageBucket, messagingSenderId, appId
+      } as unknown as FirebaseConfig;
+
+      expect(() => initializeAndGetFirebaseClient(incompleteConfig)).toThrow(
+        'Firebase configuration is missing required properties: storageBucket, messagingSenderId, appId. Please ensure your FIREBASE_CONFIG is complete.',
+      );
+    });
   });
 });

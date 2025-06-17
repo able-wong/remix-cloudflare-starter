@@ -110,12 +110,15 @@ describe('env.ts', () => {
       });
     });
 
-    it('should throw error when FIREBASE_CONFIG is not set', () => {
+    it('should return undefined Firebase config when not set', () => {
       const context = {};
 
-      expect(() => getClientEnv(context)).toThrow(
-        'FIREBASE_CONFIG environment variable is not set. Please ensure it is configured in your environment.',
-      );
+      const result = getClientEnv(context);
+
+      expect(result).toEqual({
+        FIREBASE_CONFIG: undefined,
+        APP_NAME: 'remix-cloudflare-app',
+      });
     });
 
     it('should throw error when FIREBASE_CONFIG contains invalid JSON', () => {
@@ -133,16 +136,22 @@ describe('env.ts', () => {
     it('should handle empty context object', () => {
       const context = {};
 
-      expect(() => getClientEnv(context)).toThrow(
-        'FIREBASE_CONFIG environment variable is not set. Please ensure it is configured in your environment.',
-      );
+      const result = getClientEnv(context);
+
+      expect(result).toEqual({
+        FIREBASE_CONFIG: undefined,
+        APP_NAME: 'remix-cloudflare-app',
+      });
     });
 
     it('should handle undefined context', () => {
       // @ts-expect-error Testing with undefined context
-      expect(() => getClientEnv(undefined)).toThrow(
-        'FIREBASE_CONFIG environment variable is not set. Please ensure it is configured in your environment.',
-      );
+      const result = getClientEnv(undefined);
+
+      expect(result).toEqual({
+        FIREBASE_CONFIG: undefined,
+        APP_NAME: 'remix-cloudflare-app',
+      });
     });
   });
 
@@ -241,9 +250,12 @@ describe('env.ts', () => {
         },
       };
 
-      expect(() => getServerEnv(context)).toThrow(
-        'Missing required environment variables: FIREBASE_CONFIG. Please ensure they are configured in your environment.',
-      );
+      const result = getServerEnv(context);
+
+      expect(result).toEqual({
+        FIREBASE_CONFIG: undefined,
+        FIREBASE_PROJECT_ID: mockProjectId,
+      });
     });
 
     it('should throw error when FIREBASE_PROJECT_ID is missing', () => {
@@ -253,32 +265,44 @@ describe('env.ts', () => {
         },
       };
 
-      expect(() => getServerEnv(context)).toThrow(
-        'Missing required environment variables: FIREBASE_PROJECT_ID. Please ensure they are configured in your environment.',
-      );
+      const result = getServerEnv(context);
+
+      expect(result).toEqual({
+        FIREBASE_CONFIG: mockFirebaseConfigString,
+        FIREBASE_PROJECT_ID: undefined,
+      });
     });
 
-    it('should throw error when both required variables are missing', () => {
+    it('should return undefined when both Firebase variables are missing', () => {
       const context = {};
 
-      expect(() => getServerEnv(context)).toThrow(
-        'Missing required environment variables: FIREBASE_CONFIG, FIREBASE_PROJECT_ID. Please ensure they are configured in your environment.',
-      );
+      const result = getServerEnv(context);
+
+      expect(result).toEqual({
+        FIREBASE_CONFIG: undefined,
+        FIREBASE_PROJECT_ID: undefined,
+      });
     });
 
     it('should handle empty context object', () => {
       const context = {};
 
-      expect(() => getServerEnv(context)).toThrow(
-        'Missing required environment variables: FIREBASE_CONFIG, FIREBASE_PROJECT_ID. Please ensure they are configured in your environment.',
-      );
+      const result = getServerEnv(context);
+
+      expect(result).toEqual({
+        FIREBASE_CONFIG: undefined,
+        FIREBASE_PROJECT_ID: undefined,
+      });
     });
 
     it('should handle undefined context', () => {
       // @ts-expect-error Testing with undefined context
-      expect(() => getServerEnv(undefined)).toThrow(
-        'Missing required environment variables: FIREBASE_CONFIG, FIREBASE_PROJECT_ID. Please ensure they are configured in your environment.',
-      );
+      const result = getServerEnv(undefined);
+
+      expect(result).toEqual({
+        FIREBASE_CONFIG: undefined,
+        FIREBASE_PROJECT_ID: undefined,
+      });
     });
 
     it('should handle mixed environment sources', () => {
@@ -315,7 +339,7 @@ describe('env.ts', () => {
 
       const result = getClientEnv(context);
 
-      expect(result.FIREBASE_CONFIG.apiKey).toBe('cloudflare-pages');
+      expect(result.FIREBASE_CONFIG?.apiKey).toBe('cloudflare-pages');
     });
 
     it('should follow correct priority order for server env', () => {
@@ -337,9 +361,11 @@ describe('env.ts', () => {
 
       const result = getServerEnv(context);
 
-      expect(JSON.parse(result.FIREBASE_CONFIG).apiKey).toBe(
-        'cloudflare-pages',
-      );
+      expect(
+        result.FIREBASE_CONFIG
+          ? JSON.parse(result.FIREBASE_CONFIG).apiKey
+          : undefined,
+      ).toBe('cloudflare-pages');
       expect(result.FIREBASE_PROJECT_ID).toBe('cloudflare-pages-project');
     });
   });

@@ -61,10 +61,38 @@ import type { FirebaseConfig } from '~/interfaces/firebaseInterface';
  * @param firebaseConfig - Firebase configuration object containing API keys and project settings.
  *                        This config is safe to be publicly shared as it only contains public identifiers.
  * @returns FirebaseApp instance - either a new initialized app or existing app instance
+ * @throws Error if firebaseConfig is null, undefined, or missing required properties
  */
 export function initializeAndGetFirebaseClient(
-  firebaseConfig: FirebaseConfig,
+  firebaseConfig: FirebaseConfig | null | undefined,
 ): FirebaseApp {
+  if (!firebaseConfig) {
+    throw new Error(
+      'Firebase configuration is not available. Please ensure FIREBASE_CONFIG environment variable is set with a valid Firebase configuration object.',
+    );
+  }
+
+  // Validate required Firebase config properties
+  const requiredProps = [
+    'apiKey',
+    'authDomain',
+    'projectId',
+    'storageBucket',
+    'messagingSenderId',
+    'appId',
+  ];
+  const missingProps = requiredProps.filter(
+    (prop) => !firebaseConfig[prop as keyof FirebaseConfig],
+  );
+
+  if (missingProps.length > 0) {
+    throw new Error(
+      `Firebase configuration is missing required properties: ${missingProps.join(
+        ', ',
+      )}. Please ensure your FIREBASE_CONFIG is complete.`,
+    );
+  }
+
   const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
   return app;

@@ -78,6 +78,19 @@ export class FirebaseRestApi {
     fetchImpl: FetchFunction = fetch,
     logger?: Logger,
   ) {
+    // Validate Firebase configuration
+    if (!config) {
+      throw new Error(
+        'Firebase configuration is required. Please ensure FIREBASE_CONFIG and FIREBASE_PROJECT_ID environment variables are set.',
+      );
+    }
+
+    if (!config.apiKey || !config.projectId) {
+      throw new Error(
+        'Firebase configuration is incomplete. Both apiKey and projectId are required.',
+      );
+    }
+
     this.config = config;
     this.fetchImpl = fetchImpl;
     this.logger =
@@ -165,4 +178,52 @@ export class FirebaseRestApi {
     }
   }
   */
+}
+
+/**
+ * Helper function to create FirebaseRestApi instance from server environment variables
+ * @param serverEnv - Server environment variables from getServerEnv()
+ * @param fetchImpl - Optional fetch implementation
+ * @param logger - Optional logger instance
+ * @returns FirebaseRestApi instance
+ * @throws Error if required Firebase environment variables are not available
+ */
+export function createFirebaseRestApi(
+  serverEnv: { FIREBASE_CONFIG?: string; FIREBASE_PROJECT_ID?: string },
+  fetchImpl?: FetchFunction,
+  logger?: Logger,
+): FirebaseRestApi {
+  if (!serverEnv.FIREBASE_CONFIG) {
+    throw new Error(
+      'FIREBASE_CONFIG environment variable is not set. Please ensure it is configured for Firebase functionality.',
+    );
+  }
+
+  if (!serverEnv.FIREBASE_PROJECT_ID) {
+    throw new Error(
+      'FIREBASE_PROJECT_ID environment variable is not set. Please ensure it is configured for Firebase functionality.',
+    );
+  }
+
+  let firebaseConfig: { apiKey: string };
+  try {
+    firebaseConfig = JSON.parse(serverEnv.FIREBASE_CONFIG);
+  } catch (error) {
+    throw new Error(
+      'FIREBASE_CONFIG environment variable contains invalid JSON. Please ensure it is properly formatted.',
+    );
+  }
+
+  if (!firebaseConfig.apiKey) {
+    throw new Error('FIREBASE_CONFIG is missing required apiKey property.');
+  }
+
+  return new FirebaseRestApi(
+    {
+      apiKey: firebaseConfig.apiKey,
+      projectId: serverEnv.FIREBASE_PROJECT_ID,
+    },
+    fetchImpl,
+    logger,
+  );
 }

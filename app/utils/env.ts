@@ -10,14 +10,14 @@ import type { FirebaseConfig } from '~/interfaces/firebaseInterface';
 
 // Frontend environment variables (safe to expose)
 export interface ClientEnv {
-  FIREBASE_CONFIG: FirebaseConfig;
+  FIREBASE_CONFIG?: FirebaseConfig;
   APP_NAME: string;
 }
 
 // Server-side environment variables
 export interface ServerEnv {
-  FIREBASE_CONFIG: string;
-  FIREBASE_PROJECT_ID: string;
+  FIREBASE_CONFIG?: string;
+  FIREBASE_PROJECT_ID?: string;
 }
 
 type ClientEnvKey = 'FIREBASE_CONFIG' | 'APP_NAME';
@@ -39,10 +39,8 @@ interface CloudflareContext {
  * 2. Wrangler Development (context.env)
  * 3. Vite Development (process.env)
  *
- * Required Environment Variables:
- * - FIREBASE_CONFIG: JSON string containing Firebase configuration
- *
  * Optional Environment Variables:
+ * - FIREBASE_CONFIG: JSON string containing Firebase configuration (only required for Firebase functionality)
  * - APP_NAME: Application name used for logging (defaults to 'remix-cloudflare-app')
  *
  * Example .env file:
@@ -61,19 +59,16 @@ export function getClientEnv(context: CloudflareContext): ClientEnv {
   };
 
   const firebaseConfig = getEnvVar('FIREBASE_CONFIG');
-  if (!firebaseConfig) {
-    throw new Error(
-      'FIREBASE_CONFIG environment variable is not set. Please ensure it is configured in your environment.',
-    );
-  }
+  let parsedFirebaseConfig: FirebaseConfig | undefined;
 
-  let parsedFirebaseConfig: FirebaseConfig;
-  try {
-    parsedFirebaseConfig = JSON.parse(firebaseConfig);
-  } catch (error) {
-    throw new Error(
-      'FIREBASE_CONFIG environment variable contains invalid JSON. Please ensure it is properly formatted.',
-    );
+  if (firebaseConfig) {
+    try {
+      parsedFirebaseConfig = JSON.parse(firebaseConfig);
+    } catch (error) {
+      throw new Error(
+        'FIREBASE_CONFIG environment variable contains invalid JSON. Please ensure it is properly formatted.',
+      );
+    }
   }
 
   return {
@@ -91,9 +86,9 @@ export function getClientEnv(context: CloudflareContext): ClientEnv {
  * 2. Wrangler Development (context.env)
  * 3. Vite Development (process.env)
  *
- * Required Environment Variables:
- * - FIREBASE_CONFIG: JSON string containing Firebase configuration
- * - FIREBASE_PROJECT_ID: Firebase Project ID
+ * Optional Environment Variables:
+ * - FIREBASE_CONFIG: JSON string containing Firebase configuration (only required for Firebase functionality)
+ * - FIREBASE_PROJECT_ID: Firebase Project ID (only required for Firebase functionality)
  */
 export function getServerEnv(context: CloudflareContext): ServerEnv {
   const getEnvVar = (key: ServerEnvKey): string | undefined => {
@@ -104,22 +99,8 @@ export function getServerEnv(context: CloudflareContext): ServerEnv {
     );
   };
 
-  const requiredVars: ServerEnvKey[] = [
-    'FIREBASE_CONFIG',
-    'FIREBASE_PROJECT_ID',
-  ];
-
-  const missingVars = requiredVars.filter((key) => !getEnvVar(key));
-  if (missingVars.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missingVars.join(
-        ', ',
-      )}. Please ensure they are configured in your environment.`,
-    );
-  }
-
   return {
-    FIREBASE_CONFIG: getEnvVar('FIREBASE_CONFIG')!,
-    FIREBASE_PROJECT_ID: getEnvVar('FIREBASE_PROJECT_ID')!,
+    FIREBASE_CONFIG: getEnvVar('FIREBASE_CONFIG'),
+    FIREBASE_PROJECT_ID: getEnvVar('FIREBASE_PROJECT_ID'),
   };
 }
