@@ -1,50 +1,70 @@
 /**
  * Firebase REST API Service
+ * This module provides server-side Firebase functionality using the Firebase REST API.
+ * It's designed to work in Cloudflare Workers environment where Firebase Admin SDK
+ * might not be compatible.
  *
- * This service is primarily used in Remix actions (server-side) to interact with Firebase services,
- * particularly Firestore. It provides methods to verify Firebase ID tokens and perform
- * authenticated operations against Firebase REST APIs.
+ * Required Configuration:
+ * - apiKey: Firebase Web API Key (from Firebase Console)
+ * - projectId: Firebase Project ID
  *
- * Usage in Remix actions:
- * 1. Frontend should send the Firebase ID token in the Authorization header:
- *    ```typescript
- *    const token = await user.getIdToken();
- *    const response = await fetch('/api/endpoint', {
- *      headers: {
- *        Authorization: `Bearer ${token}`,
- *      },
- *    });
- *    ```
+ * How to get the required configuration:
+ * 1. Go to Firebase Console (https://console.firebase.google.com)
+ * 2. Select your project
+ * 3. Go to Project Settings (gear icon) > General
+ * 4. Scroll down to "Your apps" section
+ * 5. Click on the web app (</>) icon
+ *    - If no web app exists, create one by clicking "Add app" and selecting web
+ * 6. Copy the apiKey and projectId values
  *
- * 2. In the Remix action, extract and verify the token:
- *    ```typescript
- *    const authHeader = request.headers.get('Authorization');
- *    const idToken = authHeader?.split('Bearer ')[1];
- *    const { uid } = await firebaseRestApi.verifyIdToken(idToken);
- *    ```
+ * Usage Scenarios:
+ * - Server-side Firebase operations in Cloudflare Workers
+ * - Remix actions for handling form submissions and data mutations
+ * - Token verification for authentication in Remix loaders and actions
+ * - User profile updates through Remix form actions
+ * - Any Firebase operations that need to be performed server-side
  *
- * 3. Use the verified token to make authenticated requests to Firebase services
+ * Security Considerations:
+ * - This service uses Firebase REST API which requires the Web API Key
+ * - The API Key is safe to use in server-side code
+ * - All operations require a valid Firebase ID token
+ * - Token verification is performed before any user data operations
  *
- * Note: This implementation uses REST APIs instead of the Firebase Admin SDK
- * to ensure compatibility with Cloudflare Workers environment.
+ * Example Usage in Remix:
+ * ```typescript
+ * import { getServerEnv } from '~/utils/env';
+ *
+ * export async function action({ request, context }: ActionFunctionArgs) {
+ *   const env = getServerEnv(context);
+ *   const firebaseRestApi = new FirebaseRestApi({
+ *     apiKey: JSON.parse(env.FIREBASE_CONFIG).apiKey,
+ *     projectId: env.FIREBASE_PROJECT_ID
+ *   });
+ *
+ *   // Get the ID token from the request
+ *   const idToken = request.headers.get('Authorization')?.split('Bearer ')[1];
+ *   if (!idToken) {
+ *     throw new Error('No ID token provided');
+ *   }
+ *
+ *   // Verify the token and get user ID
+ *   const { uid } = await firebaseRestApi.verifyIdToken(idToken);
+ *
+ *   // Now you can use the verified uid for your business logic
+ *   // For example, query/update user data in Firestore using REST API
+ *
+ *   return json({ success: true, userId: uid });
+ * }
+ * ```
  */
 
-import { logger as defaultLogger } from '~/utils/logger';
+import { LoggerFactory, type Logger } from '~/utils/logger';
 
 export type FetchFunction = typeof fetch;
 
 interface FirebaseConfig {
   apiKey: string;
   projectId: string;
-}
-
-// Define a logger interface to make it easier to mock
-interface Logger {
-  error: (
-    message: string,
-    options?: { [key: string]: string | number | boolean | undefined },
-  ) => void;
-  // Add other logger methods if needed
 }
 
 export class FirebaseRestApi {
@@ -56,11 +76,15 @@ export class FirebaseRestApi {
   constructor(
     config: FirebaseConfig,
     fetchImpl: FetchFunction = fetch,
-    logger: Logger = defaultLogger,
+    logger?: Logger,
   ) {
     this.config = config;
     this.fetchImpl = fetchImpl;
-    this.logger = logger;
+    this.logger =
+      logger ||
+      LoggerFactory.createLogger({
+        service: 'firebase-restapi',
+      });
     // Bind fetch to global context for Cloudflare Workers
     this.boundFetch = fetchImpl.bind(globalThis);
   }

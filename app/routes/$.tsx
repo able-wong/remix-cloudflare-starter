@@ -1,20 +1,21 @@
-import { json } from "@remix-run/cloudflare";
-import type { LoaderFunctionArgs } from "@remix-run/cloudflare";
+import { json } from '@remix-run/cloudflare';
+import type { LoaderFunctionArgs } from '@remix-run/cloudflare';
+import { createContextLogger } from '~/utils/logger';
 
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request, context }: LoaderFunctionArgs) {
   const url = new URL(request.url);
-  const logData = {
-    time: new Date().toISOString(),
-    route: url.pathname,
-    description: "404 Not Found",
-  };
-  
-  console.log(JSON.stringify(logData));
+  const logger = createContextLogger(context);
 
-  return json(
-    { message: "Not Found" },
-    { status: 404 }
-  );
+  // Log 404 errors with structured data for New Relic
+  logger.warn('Page not found', {
+    url: url.pathname,
+    method: request.method,
+    user_agent: request.headers.get('User-Agent') || 'unknown',
+    referrer: request.headers.get('Referer') || 'direct',
+    error_type: '404_not_found',
+  });
+
+  return json({ message: 'Not Found' }, { status: 404 });
 }
 
 export default function CatchAll() {

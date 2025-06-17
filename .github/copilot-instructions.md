@@ -27,9 +27,10 @@ Deployed on Cloudflare Pages with Firebase backend (auth, database, storage).
 
 ### Firebase Integration
 
-- Environment variables: Copy `.dev.vars.example` to `.dev.vars` and populate
+- Environment variables: Copy `.dev.vars.example` to `.dev.vars` and populate Firebase configuration
 - Add same variables as secrets in Cloudflare Pages project settings
 - Firebase services: Authentication, Firestore Database, Storage
+- See "Firebase Integration Patterns" section for detailed implementation guidance
 
 ## Environment Variables
 
@@ -60,6 +61,12 @@ export async function action({ context }: ActionFunctionArgs) {
   // All environment variables available
 }
 ```
+
+### Environment Configuration Strategy
+
+- **Minimal configuration** - Only include necessary environment variables
+- **Client vs Server separation** - Use `getClientEnv` for browser-safe config only
+- **Standard patterns** - Follow established library configuration patterns (e.g., Firebase client config)
 
 ## React Best Practices
 
@@ -99,6 +106,16 @@ export async function action({ context }: ActionFunctionArgs) {
 - Group related functionality in directories
 - Separate business logic from UI components
 - Use consistent naming conventions
+
+### Route Structure and Templates
+
+- **`app/routes/_index.tsx` is a demo/template file** - This file contains a comprehensive showcase of DaisyUI components, theme switching, and styling patterns. It should be replaced or heavily modified when starting a new project.
+- The demo page includes examples of:
+  - Theme switching functionality
+  - DaisyUI component usage (cards, alerts, buttons, navbar)
+  - TailwindCSS utility patterns
+  - Responsive design implementation
+- Use this file as a reference for component patterns and styling approaches, then replace with your actual application content
 
 ### Business Logic Organization
 
@@ -144,7 +161,7 @@ export async function action({ context }: ActionFunctionArgs) {
 
 ### Component Selection Priority
 
-1. **DaisyUI first**: Use DaisyUI components for common UI elements
+1. **DaisyUI first**: Use DaisyUI components for common UI elements (including loading states, skeletons, form controls)
 2. **External React components**: If DaisyUI doesn't have what you need
 3. **Custom components**: Create from scratch and store in `app/components/` folder
 
@@ -154,6 +171,58 @@ export async function action({ context }: ActionFunctionArgs) {
 - Implement proper code splitting
 - Minimize client-side JavaScript
 - Follow Remix data loading patterns
+
+## Architectural Decisions & Patterns
+
+### Authentication & Authorization
+
+- **Use Firebase Auth directly** - Leverage Firebase Auth capabilities without custom wrapper services
+- **Simple authorization patterns** - Use route-level protection in Remix loaders
+- **Add role-based auth only when necessary** - Implement complex role systems only if users have different functional roles
+- **Prefer simple checks** - Email-based admin checks or basic user properties over complex authorization layers
+
+### Data Operations Patterns
+
+- **Firestore for primary data** - Use Firestore collections for main application data
+- **Client-side Firebase SDK** - For real-time features and client-side operations
+- **Server-side operations** - Use existing `firebase-restapi.ts` pattern for server operations
+- **Search implementation** - Use Firestore queries with proper indexing when possible
+
+### Firebase Integration Patterns
+
+- **Environment Configuration**:
+
+  - `FIREBASE_CONFIG`: Client-safe configuration (contains public API keys and identifiers)
+  - `FIREBASE_PROJECT_ID`: Project identifier for server-side operations
+
+- **Service Usage**:
+
+  - **Client-side operations**: Use `firebase.ts` service with `initializeAndGetFirebaseClient()`
+  - **Server-side operations**: Use `firebase-restapi.ts` service for Cloudflare Workers compatibility
+  - **Token verification**: Always verify Firebase ID tokens in server-side operations
+  - **Error handling**: Implement proper error handling for all Firebase operations
+
+- **Security Best Practices**:
+
+  - Configure Firebase Security Rules for all services (Firestore, Storage, Realtime Database)
+  - Never expose private keys or service account credentials in client-side code
+  - Use Firebase ID tokens for user authentication in server-side operations
+  - Implement proper user authorization checks before data operations
+
+- **Development Workflow**:
+  1. Set up environment variables using `.dev.vars` file
+  2. Configure Firebase project and enable required services
+  3. Set up Firebase Security Rules before deploying
+  4. Test authentication flows in development
+  5. Verify server-side token validation works correctly
+  6. Test Firebase operations with proper error handling
+
+### Feature Planning Guidelines
+
+- **Question custom services** - Challenge the need for wrapper services around well-established libraries
+- **Leverage existing capabilities** - Always check framework/library capabilities before creating custom solutions
+- **Simplify when possible** - Prefer simple, direct approaches over complex abstractions
+- **Follow established patterns** - Use existing project patterns and services as templates
 
 ## Project Structure
 

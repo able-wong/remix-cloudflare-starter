@@ -1,15 +1,32 @@
-import type { MetaFunction } from "@remix-run/cloudflare";
+import type { MetaFunction, LoaderFunctionArgs } from '@remix-run/cloudflare';
+import { json } from '@remix-run/cloudflare';
+import { createContextLogger } from '~/utils/logger';
 
 export const meta: MetaFunction = () => {
   return [
-    { title: "Remix + TailwindCSS + DaisyUI Demo" },
-    { name: "description", content: "A demo showcasing Remix, TailwindCSS, and DaisyUI components" },
+    { title: 'Remix + TailwindCSS + DaisyUI Demo' },
+    {
+      name: 'description',
+      content: 'A demo showcasing Remix, TailwindCSS, and DaisyUI components',
+    },
   ];
 };
 
+export async function loader({ context }: LoaderFunctionArgs) {
+  const logger = createContextLogger(context);
+
+  logger.info('Index page loaded', {
+    route: '/_index',
+    timestamp: new Date().toISOString(),
+    requestId: Math.random().toString(36).substring(7),
+  });
+
+  return json({ success: true });
+}
+
 export default function Index() {
-  const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
-    localStorage.setItem("theme", newTheme);
+  const handleThemeChange = (newTheme: 'light' | 'dark' | 'system') => {
+    localStorage.setItem('theme', newTheme);
     window.location.reload();
   };
 
@@ -17,7 +34,9 @@ export default function Index() {
     <div className="min-h-screen bg-base-100">
       <div className="navbar bg-base-200">
         <div className="flex-1">
-          <span className="btn btn-ghost text-xl">Remix + TailwindCSS + DaisyUI Demo</span>
+          <span className="btn btn-ghost text-xl">
+            Remix + TailwindCSS + DaisyUI Demo
+          </span>
         </div>
         <div className="flex-none">
           <div className="dropdown dropdown-end">
@@ -33,13 +52,17 @@ export default function Index() {
             </button>
             <ul className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
               <li>
-                <button onClick={() => handleThemeChange("light")}>Light</button>
+                <button onClick={() => handleThemeChange('light')}>
+                  Light
+                </button>
               </li>
               <li>
-                <button onClick={() => handleThemeChange("dark")}>Dark</button>
+                <button onClick={() => handleThemeChange('dark')}>Dark</button>
               </li>
               <li>
-                <button onClick={() => handleThemeChange("system")}>System</button>
+                <button onClick={() => handleThemeChange('system')}>
+                  System
+                </button>
               </li>
             </ul>
           </div>

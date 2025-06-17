@@ -1,5 +1,6 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { FirebaseRestApi } from '../../services/firebase-restapi';
+import type { Logger } from '../../utils/logger';
 
 describe('FirebaseRestApi', () => {
   const mockConfig = {
@@ -7,17 +8,20 @@ describe('FirebaseRestApi', () => {
     projectId: 'test-project-id',
   };
 
-  const mockLogger = {
+  const mockLogger: Logger = {
     error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
   };
 
-  const mockFetch = jest.fn();
+  const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
 
   let api: FirebaseRestApi;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    api = new FirebaseRestApi(mockConfig, mockFetch as any, mockLogger);
+    api = new FirebaseRestApi(mockConfig, mockFetch, mockLogger);
   });
 
   describe('verifyIdToken', () => {
@@ -27,7 +31,7 @@ describe('FirebaseRestApi', () => {
         json: async () => ({
           users: [{ localId: 'test-user-id' }],
         }),
-      };
+      } as Response;
       mockFetch.mockResolvedValueOnce(mockResponse);
 
       const result = await api.verifyIdToken('test-token');
@@ -54,7 +58,7 @@ describe('FirebaseRestApi', () => {
         json: async () => ({
           error: { message: 'Invalid token' },
         }),
-      };
+      } as Response;
       mockFetch.mockResolvedValueOnce(mockResponse);
 
       await expect(api.verifyIdToken('invalid-token')).rejects.toThrow(
@@ -78,7 +82,7 @@ describe('FirebaseRestApi', () => {
         json: async () => ({
           users: [],
         }),
-      };
+      } as Response;
       mockFetch.mockResolvedValueOnce(mockResponse);
 
       await expect(api.verifyIdToken('test-token')).rejects.toThrow(
