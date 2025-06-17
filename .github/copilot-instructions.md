@@ -224,6 +224,22 @@ export async function action({ context }: ActionFunctionArgs) {
   6. Verify server-side token validation works correctly
   7. Test Firebase operations with proper error handling
 
+### Data Seeding & Mock Data Patterns
+
+- **Firebase Tools CLI approach** - Use `firebase-tools` CLI commands for data import/export operations (not TypeScript scripts)
+- **JSON file structure** - Create structured JSON files in `data/` directory matching Firestore collection hierarchy
+- **Mock data strategy** - Create comprehensive datasets covering edge cases and various scenarios
+- **Seeding workflow**:
+  1. Create JSON files with proper Firestore document structure
+  2. Use `firebase firestore:delete --all-collections` to clear existing data (development only)
+  3. Use `firebase firestore:import ./data/` to import JSON data
+  4. Verify data structure matches application interfaces
+- **Data quality guidelines**:
+  - Include realistic data that matches production scenarios
+  - Cover edge cases (empty fields, long text, special characters)
+  - Provide sufficient data volume for testing pagination and search
+  - Use consistent data patterns across related collections
+
 ### Feature Planning Guidelines
 
 - **Question custom services** - Challenge the need for wrapper services around well-established libraries
@@ -241,6 +257,7 @@ app/
 ├── utils/           # Utility functions
 └── __tests__/       # Test files
 
+data/                # JSON files for Firebase data seeding
 public/              # Static assets
 functions/           # Cloudflare Pages functions
 ```
