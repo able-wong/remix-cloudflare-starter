@@ -2,7 +2,7 @@
 applyTo: '**/*.ts,**/*.tsx'
 ---
 
-# Project Requirements and Coding Standards
+# AI Behavior Guide
 
 ## Project Overview
 
@@ -17,9 +17,42 @@ Deployed on Cloudflare Pages with optional Firebase backend (auth, database, sto
 - **Backend**: Optional Firebase (auth, database, storage)
 - **Build Tool**: Vite
 
+## Core Development Protocol
+
+**MANDATORY FIRST STEP: Always clarify requirements before any implementation**
+
+When a user requests a feature:
+
+1. **Stop and Ask Questions** - Never start coding immediately
+2. **Present options with trade-offs** - Help users understand their choices
+3. **Confirm understanding** - Summarize requirements back to user
+4. **Get explicit approval** - Wait for "yes, proceed" before starting
+
+**Required Clarification Questions:**
+
+- **Data Sources**: External APIs vs local database (Firestore) vs hybrid approach?
+- **Authentication**: Public access, Firebase Auth, role-based access control needed?
+- **UI/UX**: Specific component styles, layouts, or design patterns?
+- **Data Structure**: What fields are required? Any relationships or validation rules?
+- **Performance Expectations**: Search speed requirements, expected data volume, real-time updates needed?
+- **User Flow**: Who will use this feature and how? Complete workflow?
+
+**Examples of Required Clarification:**
+
+- "Build a blog" → What content management approach? Admin interface needed? User comments? SEO requirements?
+- "Add authentication" → What login methods? User roles? Registration flow? Password reset?
+- "Create a dashboard" → What data to display? Real-time updates? User-specific or global data?
+
+**Implementation Planning Defaults:**
+
+- **Always propose Mock-to-Database approach** unless user requests otherwise
+- **Break complex features into single-function pieces** (e.g., search, then filters, then admin)
+- **Plan Phase 1 mock implementation first** before discussing database integration
+- **Define clear success criteria** for each phase before starting implementation
+
 ## Quick Reference
 
-### Firebase Service Selection - Simple Rules
+### Firebase Service Selection & Patterns
 
 **Context-Based Selection (Only consideration needed):**
 
@@ -33,17 +66,65 @@ Deployed on Cloudflare Pages with optional Firebase backend (auth, database, sto
 - Real-time search in components → `firebase.ts`
 - User login/logout → `firebase.ts`
 
+**Key Patterns:**
+
+- **Authentication**: Always client-side with Firebase SDK, never server-side auth
+  - Use `signInWithEmailAndPassword()` for login - never custom auth flows
+  - Firebase manages auth state automatically after successful login
+- **Token Passing**: When using `firebase-restapi.ts`, idToken MUST be passed from frontend to loaders/actions
+  - Get idToken client-side: `await user.getIdToken()`
+  - Pass via form data or headers to server-side operations
+  - Never assume server-side has automatic access to auth state
+- **Environment Setup**: Run `npm run test-firebase` first to determine what needs fixing
+  - NEVER overwrite existing `.dev.vars` - always check its content first
+  - Guide user to fix specific missing/invalid variables based on test results
+- **Security**: Configure Firestore security rules, never expose private keys client-side
+- **Data Operations**: Use Firestore for primary data with dependency injection pattern
+
 ### Implementation Phases
 
 - **UI-only features** → Direct implementation
-- **Data features** → Mock first → Database integration
+- **Data features** → Mock first → Database integration (mandatory approach)
 - **Required validation** → `npm test && npm run typecheck && npm run lint`
+
+**Mock-to-Database Protocol:**
+
+1. **Phase 1**: UI + realistic mock data + TypeScript interfaces + validation
+2. **Phase 2**: Firebase setup (if not already configured)
+3. **Phase 3**: Replace mock with database, keep same interfaces
+4. **Always validate each phase** before proceeding to next
+
+**Post-Implementation Validation (All Features):**
+
+- Run validation: `npm test && npm run typecheck && npm run lint`
+- **Explain to user what was implemented** and ask them to validate requirements are met correctly
+- For data features after Phase 3: **Propose deployment to Cloudflare** and follow Deployment Protocol
 
 ### When to Skip Mock Phase
 
 - User explicitly requests direct database implementation
 - Simple data display with clear, stable requirements
 - Database is already configured and requirements are very specific
+
+### Deployment Protocol
+
+**MANDATORY: Always run `npm run test-cloudflare` before any deployment**
+
+**AI Behavior for Deployment Requests:**
+
+1. User mentions deployment → Run `npm run test-cloudflare`
+2. If issues found → Guide user to fix each issue with specific instructions
+3. User confirms fixes → Re-run `npm run test-cloudflare` to verify
+4. **ASK USER FOR APP NAME** - Never choose app names (becomes public URL: https://app-name.pages.dev)
+5. Remind about environment variables in Cloudflare Pages dashboard
+6. Only when all checks pass → Suggest `npm run deploy`
+
+**Pre-Deployment Checklist:**
+
+- Change project name from `remix-cloudflare-starter` in `wrangler.jsonc` and `package.json`
+- Ensure Wrangler authentication: `wrangler auth login`
+- Configure environment variables in Cloudflare Pages dashboard
+- Verify `npm run build` completes successfully
 
 ### Troubleshooting Quick Reference
 
@@ -56,199 +137,44 @@ Deployed on Cloudflare Pages with optional Firebase backend (auth, database, sto
 1. **DaisyUI first** → External React components → Custom components
 2. **Store custom components** in `app/components/` folder
 
-### Development Commands
+### Essential Commands
 
-```bash
-npm run dev          # Start development server
-npm test            # Run tests (required before validation)
-npm run typecheck   # TypeScript checking (required before validation)
-npm run lint        # Lint code (required before validation)
-npm run test-cloudflare # Test Cloudflare config (REQUIRED before deployment)
-npm run deploy      # Deploy to Cloudflare Pages
-npm run build        # Build for production
-npm run format      # Format code
-npm run import-firestore data/filename.json collection-name --clear # Import Firestore data
-npm run fetch-firebase collection-name # Inspect Firestore data (Admin SDK, bypasses security rules)
-npm run test-firebase # Run Firebase integration tests
-
-# Installation (use --legacy-peer-deps due to Wrangler v4/Remix v2 compatibility)
-npm install --legacy-peer-deps
-```
+- `npm run dev` - Start development server
+- `npm test && npm run typecheck && npm run lint` - Required validation
+- `npm run test-cloudflare` - REQUIRED before deployment
+- `npm run test-firebase` - Diagnose Firebase issues
+- `npm run fetch-firebase collection-name` - Inspect Firestore data
+- `npm run deploy` - Deploy to Cloudflare Pages
 
 ## Project Setup
 
-### Deployment
+### Firebase Integration (Optional)
 
-**MANDATORY Pre-Deployment Checks:**
+Firebase provides authentication, database, and storage. Only needed when using these features.
 
-1. **Always run `npm run test-cloudflare` before suggesting deployment** - This script checks:
+**Setup Commands:**
 
-   - Wrangler CLI installation and authentication
-   - Build configuration and output
-   - Environment variables setup
-   - Project name customization (must not be generic `remix-cloudflare-starter`)
-   - Common deployment pitfalls
+- `npm run test-firebase` - **ALWAYS run first** to diagnose what needs fixing
+- `npm run fetch-firebase collection-name` - Inspect Firestore data
+- Use custom scripts in `scripts/` folder for data import (Firebase CLI doesn't support data import)
 
-2. **Address ALL warnings and errors** from the test script before proceeding with deployment
+**Environment Variables Approach:**
 
-3. **Required fixes before deployment:**
-   - Change project name in both `wrangler.jsonc` and `package.json` from `remix-cloudflare-starter`
-   - Ensure Wrangler authentication: `wrangler auth login`
-   - Verify build output exists and is valid
-   - Confirm environment variables are properly configured
+- **NEVER overwrite existing `.dev.vars`** - always check content first
+- Run `npm run test-firebase` to identify missing/invalid variables
+- Guide user to fix specific issues based on test results
+- Required variables: `FIREBASE_CONFIG`, `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_KEY`
 
-**Known Issues:**
+## Development Strategy
 
-- **npm install fails with ERESOLVE errors**: This project uses Wrangler v4 which has peer dependency conflicts with Remix v2. Always use `npm install --legacy-peer-deps` to resolve this. This is a known compatibility issue between newer Wrangler versions and current Remix versions.
-
-**Deployment Process:**
-
-- **NEVER suggest `npm run deploy` without first running `npm run test-cloudflare`**
-- Deploy to Cloudflare Pages using `npm run deploy` (only after all checks pass)
-- Guide users to fix any issues identified by the test script before deployment
-
-### Firebase Integration
-
-- **Optional Setup**: Firebase integration is only needed when using authentication, database, or storage features
-- **Firebase Tools**: Use `firebase-tools` CLI for project setup, security rules deployment, and administrative tasks (not for data import - use custom scripts)
-- **Data Import**: Use custom Node.js script in `scripts/` folder for importing JSON data to Firestore (Firebase CLI doesn't support data import)
-- **Environment Configuration**: See Firebase Integration Patterns section for complete setup details
-- **Firebase CLI Version**: Recommended v14.7.0 or later for optimal compatibility (minimum v14.0.0)
-- Firebase services: Authentication, Firestore Database, Storage
-
-## Architectural Decisions & Patterns
-
-### Firebase Integration Patterns
-
-#### Authentication & Authorization
-
-**Firebase Authentication Pattern:**
-
-- **Always client-side** - Use Firebase client SDK in browser
-- **Never server-side** - Don't use Firebase REST API for auth
-- **Standard form handling** - Use regular form submission with client-side auth
-
-**Correct Implementation:**
-
-```tsx
-// Client-side authentication (React component)
-const handleLogin = async (email: string, password: string) => {
-  const auth = firebase.auth();
-  await auth.signInWithEmailAndPassword(email, password);
-  // Firebase manages auth state automatically
-};
-
-// Server-side verification (Remix loader)
-export async function loader({ request }: LoaderFunctionArgs) {
-  const idToken = getIdTokenFromRequest(request);
-  if (!idToken || !isValidFirebaseToken(idToken)) {
-    return redirect('/admin/login');
-  }
-  // Proceed with authenticated operations
-}
-```
-
-**Never Do:**
-
-- ❌ Server-side Firebase authentication
-- ❌ Complex client→server auth token passing
-- ❌ Manual form submission after client auth
-
-#### Environment Configuration
-
-**Environment File Setup:**
-
-```bash
-# Check if .dev.vars exists, create from example if not
-if [ ! -f .dev.vars ]; then
-  cp .dev.vars.example .dev.vars
-  echo "Created .dev.vars from example - please configure with your Firebase settings"
-else
-  echo ".dev.vars already exists - verify it contains required Firebase settings"
-fi
-```
-
-**Required Variables in .dev.vars:**
-
-```
-FIREBASE_CONFIG={"apiKey":"...","authDomain":"...","projectId":"..."}
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
-```
-
-**Verification:**
-
-```bash
-npm run test-firebase  # Must pass before proceeding
-```
-
-**Common Setup Issues:**
-
-- Missing `.dev.vars` → Copy from `.dev.vars.example`
-- Invalid Firebase config → Check Firebase Console settings
-- Service account key missing → Download from Firebase Console > Service Accounts
-
-#### Security Best Practices
-
-- Configure Firebase Security Rules for all services (Firestore, Storage, Realtime Database)
-- Never expose private keys or service account credentials in client-side code
-- Use Firebase ID tokens for user authentication in server-side operations
-- Implement proper user authorization checks before data operations
-- **firebase-restapi.ts** supports optional authentication: Pass `idToken` for authenticated access, omit for public access
-- **firebase.ts** handles authentication automatically through Firebase Auth SDK
-- **Prefer client-side auth** unless server secrets are required
-
-#### Data Operations
-
-- **Firestore for primary data** - Use Firestore collections for main application data
-- **Service integration** - Use dependency injection pattern with service classes for both approaches
-
-### Development Strategy
-
-#### Feature Planning Guidelines
+### Feature Planning Guidelines
 
 - **Question custom services** - Challenge the need for wrapper services around well-established libraries
 - **Leverage existing capabilities** - Always check framework/library capabilities before creating custom solutions
 - **Simplify when possible** - Prefer simple, direct approaches over complex abstractions
 - **Follow established patterns** - Use existing project patterns and services as templates
 
-#### Deployment Guidelines
-
-**AI Behavior for Deployment Requests:**
-
-- **Always check deployment readiness first** - When users ask about deployment, immediately run `npm run test-cloudflare`
-- **Never suggest deployment without validation** - If `npm run test-cloudflare` shows warnings or errors, guide users to fix them first
-- **ASK USER FOR APP NAME** - Never choose app names for users. Always ask the user to choose their preferred app name since it becomes their public URL (https://app-name.pages.dev). Provide naming guidelines and suggestions but let the user decide.
-- **Require project name customization** - Ensure users change the project name from `remix-cloudflare-starter` in both `wrangler.jsonc` and `package.json`
-- **Provide specific fix instructions** - For each issue found by the test script, give clear steps to resolve it
-- **Verify fixes before proceeding** - After users make changes, re-run `npm run test-cloudflare` to confirm issues are resolved
-
-**Deployment Process Enforcement:**
-
-1. User mentions deployment → Run `npm run test-cloudflare`
-2. If issues found → Guide user to fix each issue with specific instructions
-3. User confirms fixes → Re-run `npm run test-cloudflare` to verify
-4. **Remind about environment variables** → Guide user to set up environment variables in Cloudflare Pages dashboard
-5. Only when all checks pass → Suggest `npm run deploy`
-
-**Environment Variables Setup Reminder:**
-
-- **Always remind users** to configure environment variables in Cloudflare Pages before deployment
-- **Guide users to**: Cloudflare Dashboard > Pages > [Project Name] > Settings > Environment Variables
-- **Production environment variables**: Copy the same variables from `.dev.vars` to Cloudflare Pages
-- **Firebase integration**: If using Firebase, ensure `FIREBASE_CONFIG`, `FIREBASE_PROJECT_ID`, and other Firebase variables are set
-- **Security note**: Never commit `.dev.vars` to version control - these are local development only
-
-**Common Issues to Address:**
-
-- Generic project name (`remix-cloudflare-starter`) - **ASK USER to choose their preferred app name**
-- Missing Wrangler authentication - guide through `wrangler auth login`
-- Build output issues - verify `npm run build` completes successfully
-- **Environment variables not configured in Cloudflare Pages** - remind users to set up production environment variables
-- Missing or invalid `.dev.vars` file for local development
-- Firebase configuration missing (if using Firebase features)
-
-#### Feature-First Development
+### Feature-First Development
 
 - **Implement one functional feature at a time** - Focus on completing user features before admin features, or vice versa based on priority
 - **Functional feature separation** - Treat user features and admin features as distinct development phases
@@ -256,102 +182,57 @@ npm run test-firebase  # Must pass before proceeding
 - **Phase independence** - Each feature should be fully functional and testable before starting the next feature
 - **User validation points** - Test complete functional workflows, not just technical implementations
 
-#### Pre-Planning Requirements Clarification
+### Implementation Approach per Functional Feature
 
-Before creating implementation plans, clarify key requirements with users if provided requirements are vague or incomplete:
-
-- **Data Sources**: External APIs vs local database (Firestore) vs hybrid approach
-- **Authentication Requirements**: Public access, Firebase Auth, role-based access control needed
-- **UI/UX Preferences**: Specific component styles, layouts, or design patterns
-- **Data Structure**: Field requirements, relationships, validation rules
-- **Performance Expectations**: Search speed, data volume, real-time updates
-
-**Implementation Planning Defaults:**
-
-- **Always propose Mock-to-Database approach** unless user requests otherwise
-- **Break complex features into single-function pieces** (e.g., search, then filters, then admin)
-- **Plan Phase 1 mock implementation first** before discussing database integration
-- **Define clear success criteria** for each phase before starting implementation
-
-#### Implementation Approach per Functional Feature
-
-##### For UI-only features (static pages, UI-only components, styling updates):
+#### For UI-only features (static pages, UI-only components, styling updates):
 
 - Implement directly without phases
 - Focus on UI/UX implementation first
-- Run automated checks (tests, type checks, linting) to ensure quality
-- Allow user validation of the feature's functionality and design
+- Follow Post-Implementation Validation (see Quick Reference)
 
-##### For data-driven features (API calls, database queries, form submissions):
+#### For data-driven features (API calls, database queries, form submissions):
 
-**MANDATORY: Always use Mock-to-Database Pattern unless explicitly requested otherwise**
+**Follow Mock-to-Database Protocol (see Quick Reference for phases)**
 
-###### Phase 1: Mock Implementation (REQUIRED FIRST STEP)
+**Phase 1 Details:**
 
-- **UI Implementation**: Build user interface for **one functional feature** with realistic mock data
-- **Mock Data Endpoints**: Create Remix loaders/actions returning static JSON data for **this feature only** (see Data Patterns Reference)
-- **Data Structure Definition**: Define TypeScript interfaces based on mock data for **this feature**
-- **Validation**: Ensure this feature's UI works perfectly with mock data before any database work
-- **Pre-Validation Checklist** (**MANDATORY**): Ensure **all following checks** pass before proceeding:
-  - `npm test` - all tests pass
-  - `npm run typecheck` - TypeScript compilation passes
-  - `npm run lint` - no lint errors
-- **User Validation**: Explain to user what to expect and allow user to validate **this feature's** functionality and design with working mock
+- Build UI for one functional feature with realistic mock data
+- Create Remix loaders/actions returning static JSON
+- Define TypeScript interfaces based on mock data
+- Follow Post-Implementation Validation (see Quick Reference)
 
-###### Phase 2: Firebase Setup (ONLY AFTER PHASE 1 COMPLETE)
+**Phase 2 Details:**
 
-**This phase is MANDATORY ONCE before any database integration**
-**Skip if Firebase is already configured**
+- Run `npm run test-firebase` to diagnose what needs fixing
+- If `.firebaserc` missing, guide user through `firebase init`:
+  - Select "Firestore: Configure security rules and indexes"
+  - Choose existing project or create new one
+  - Accept default `firestore.rules` and `firestore.indexes.json` files
+- Fix any missing environment variables identified by test
+- Deploy security rules: `firebase deploy --only firestore:rules`
+- Re-run `npm run test-firebase` until it passes
 
-1. Check `.firebaserc` exists. If missing, guide user through `firebase init`:
-   - Run `firebase login` first (user must authenticate with Google account)
-   - Run `firebase init` and guide user to select:
-     - ✅ Firestore: Configure security rules and indexes
-     - ✅ Hosting: Configure files for Firebase Hosting (optional)
-     - Choose existing project (from Step 1 of FIREBASE_SETUP.md)
-     - Accept default `firestore.rules` and `firestore.indexes.json` files
-   - **Reference**: See FIREBASE_SETUP.md for complete Firebase project setup if needed
-   - After `firebase init`, run `npm run test-firebase` to verify Firebase setup
-   - If `npm run test-firebase` fails, guide user to fix issues before proceeding
-2. Verify `.dev.vars` exists and contains: `FIREBASE_CONFIG`, `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_KEY`
-3. Confirm `firestore.rules` exists and permissions match feature requirements
-4. Run `firebase deploy --only firestore:rules` - must succeed
-5. Run `npm run test-firebase` - must pass
+**Phase 3 Details:**
 
-###### Phase 3: Database Integration (ONLY AFTER PHASE 1 COMPLETE and Firebase is setup)
+- Create database service classes following service patterns
+- Replace mock data with database operations
+- Import test data: `npm run import-firestore data/filename.json collection-name`
+- Verify data exists: `npm run fetch-firebase collection-name`
+- Keep original mock loader commented out for fallback
+- Follow Post-Implementation Validation (see Quick Reference)
 
-- **Service Layer**: Create database service classes for **this feature** (following service patterns)
-- **Environment Setup**: Configure database connections and environment variables (if not already done)
-- **Data Migration**: Replace mock data with database operations for **this feature only**
-  - Keep original mock loader commented out for fallback
-  - Maintain exact same data interface as Phase 1
-  - Ensure seamless transition without breaking existing UI
-- **Pre-Validation Checklist** (**MANDATORY**): Ensure **all following checks** pass before user validation:
-  1. Verify data import completed successfully by guiding user to check in Firestore console
-  2. `npm test` - must pass
-  3. `npm run typecheck` - must pass
-  4. `npm run lint` - must pass
-- **User Validation**: Only after all Pre-Validation checklist items pass, verify database integration maintains Phase 1 functionality
+#### Implementation Enforcement
+
+- **Default to mock-first** unless user specifically asks for database integration
+- **Always ask user to validate** Phase 1 mock implementation before proceeding to Phase 2
+- **One feature end-to-end** before starting next feature (complete all phases)
+- **Clear phase boundaries** - never mix mock and database code in same implementation
 
 **When to Skip Mock Phase:**
 
 - User explicitly requests direct database implementation
-- Feature is simple data display with clear, stable requirements
+- Simple data display with clear, stable requirements
 - Database is already configured and requirements are very specific
-
-#### Implementation Enforcement & Verification
-
-- **Default to mock-first** unless user specifically asks for database integration
-- **Always ask user to validate** Phase 1 mock implementation before proceeding to Phase 2
-- **One feature end-to-end** before starting next feature (complete both phases)
-- **Clear phase boundaries** - never mix mock and database code in same implementation
-
-**Verification Guidance Pattern:**
-
-1. **Check setup files** - Automatically verify required files exist
-2. **Test operations** - Provide specific commands/steps to verify functionality
-3. **Troubleshooting** - Give clear next steps if verification fails
-4. **User confirmation** - Ask user to confirm everything works before proceeding
 
 ### External Service Recommendations
 
@@ -393,36 +274,12 @@ When features require capabilities beyond the current tech stack, recommend thes
 - **Client Environment** (`getClientEnv`): Safe variables exposed to browser (loaders)
 - **Server Environment** (`getServerEnv`): All variables for server-side operations (actions)
 
-### Environment Variable Priority
+### Environment Variables & Configuration
 
-1. **Cloudflare Pages Production**: `context.cloudflare.env`
-2. **Wrangler Development**: `context.env`
-3. **Vite Development**: `process.env` (from `.dev.vars`)
-
-### Usage Patterns
-
-```typescript
-// In loaders (server-side for SSR)
-export async function loader({ context }: LoaderFunctionArgs) {
-  const clientEnv = getClientEnv(context);
-  // Only safe variables available for client hydration
-}
-
-// In actions (server-side)
-export async function action({ context }: ActionFunctionArgs) {
-  const serverEnv = getServerEnv(context);
-  // All environment variables available
-}
-```
-
-### Configuration Strategy
-
-- **Minimal configuration** - Only include necessary environment variables
-- **Client vs Server separation** - Use `getClientEnv` for browser-safe config only
-- **Standard patterns** - Follow established library configuration patterns (e.g., Firebase client config)
-- **Available variables**:
-  - `APP_NAME`: Application name for logging (optional, defaults to 'remix-cloudflare-app')
-  - Firebase variables: Optional, see FIREBASE_SETUP.md for details when Firebase integration is needed
+- Use `app/utils/env.ts` for environment variable access
+- **Client Environment** (`getClientEnv`): Safe variables exposed to browser (loaders)
+- **Server Environment** (`getServerEnv`): All variables for server-side operations (actions)
+- **Available variables**: `APP_NAME` (optional), Firebase variables (when needed)
 
 ## React & Component Architecture
 
@@ -476,58 +333,21 @@ export async function action({ context }: ActionFunctionArgs) {
 
 ### Project Structure
 
-```text
-app/
-├── routes/          # Remix routes (pages & API)
-├── services/        # Business logic (optional Firebase integration)
-├── components/      # Reusable UI components
-├── utils/           # Utility functions
-└── __tests__/       # Test files
-
-data/                # JSON files for custom data import scripts
-public/              # Static assets
-functions/           # Cloudflare Pages functions
-scripts/             # Data import and Firebase configuration scripts
-```
+- `app/routes/` - Remix routes (pages & API)
+- `app/services/` - Business logic (optional Firebase integration)
+- `app/components/` - Reusable UI components
+- `app/utils/` - Utility functions
+- `app/__tests__/` - Test files
 
 ### Business Logic Organization
 
 - Follow Remix conventions for routes, loaders and actions
-- Group related functionality in directories
-- Separate business logic from UI components
-- Use consistent naming conventions
 - Place all business logic in the `app/services/` folder
 - Create service classes with clear interfaces and single responsibilities
-- Use dependency injection patterns for better testability and modularity
-- Keep services framework-agnostic when possible
-- Use constructor default parameters to provide sensible defaults for dependencies
-- Use lazy initialization for default instances to avoid module-level instantiation
-- Prefer per-request service instances in Remix loaders/actions when possible
-
-### Service Layer Best Practices
-
-- Design services as classes or modules with clear public APIs
-- Implement proper error handling and validation
-- Use TypeScript interfaces to define service contracts
-- Make services easily mockable for testing
-- Follow SOLID principles for maintainable code
+- **Use dependency injection patterns** for better testability and modularity
+- **Use lazy initialization** for default instances to avoid module-level instantiation
+- **Prefer per-request service instances** in Remix loaders/actions when possible
 - **REQUIRED: Document service context** - All Firebase services must include header comments specifying usage context
-
-**Service Documentation Standard:**
-
-```typescript
-/**
- * [ServiceName] - [Description]
- *
- * USAGE CONTEXT: [CLIENT-SIDE | SERVER-SIDE]
- *
- * CLIENT-SIDE: Safe for React components, browser environments
- * SERVER-SIDE: Safe for Remix loaders/actions, server environments
- *
- * @example
- * // Show typical usage pattern
- */
-```
 
 ## Data Patterns Reference
 
@@ -572,19 +392,15 @@ scripts/             # Data import and Firebase configuration scripts
 
 ### Testing Best Practices
 
-#### Key Principles
-
 - **Mock ALL constructor dependencies** - use dependency injection, never global mocks
+- **Mock external dependencies** - APIs, databases, fetch functions, etc.
 - **Test both success and error paths** - verify logger calls on errors
 - **Reference existing tests** - copy patterns from `firebase-restapi.test.ts`
 - **Structured logging format**: `expect(mockLogger.error).toHaveBeenCalledWith('Message', { error: 'details' })`
-- Mock external dependencies (APIs, databases, etc.)
-- Use Jest's mocking capabilities for isolated testing
-- Write descriptive test names that explain the expected behavior
-- Follow AAA pattern (Arrange, Act, Assert) in test structure
-- Test both happy paths and error scenarios
+- Use Jest as the primary testing framework
+- Place tests in `app/__tests__/` directory, mirroring the service structure
 
-#### Sample Test Structure
+**Required Test Structure for Dependency Injection:**
 
 ```typescript
 // Always start with
