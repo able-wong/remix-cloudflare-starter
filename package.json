@@ -17,7 +17,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "import-firestore": "node scripts/import-firestore-data.js",
-    "test-firebase": "node scripts/test-firebase-config.js"
+    "test-firebase": "node scripts/test-firebase-config.js",
+    "test-cloudflare": "node scripts/test-cloudflare-config.js"
   },
   "dependencies": {
     "@remix-run/cloudflare": "^2.16.6",

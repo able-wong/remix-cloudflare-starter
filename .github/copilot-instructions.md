@@ -62,6 +62,7 @@ npm run dev          # Start development server
 npm test            # Run tests (required before validation)
 npm run typecheck   # TypeScript checking (required before validation)
 npm run lint        # Lint code (required before validation)
+npm run test-cloudflare # Test Cloudflare config (REQUIRED before deployment)
 npm run deploy      # Deploy to Cloudflare Pages
 npm run build        # Build for production
 npm run format      # Format code
@@ -73,9 +74,29 @@ npm run test-firebase # Run Firebase integration tests
 
 ### Deployment
 
-- Deploy to Cloudflare Pages using `npm run deploy`
-- Update `name` field in `wrangler.jsonc` with your Pages application name
-- Requires Wrangler CLI authentication: `wrangler auth login`
+**MANDATORY Pre-Deployment Checks:**
+
+1. **Always run `npm run test-cloudflare` before suggesting deployment** - This script checks:
+
+   - Wrangler CLI installation and authentication
+   - Build configuration and output
+   - Environment variables setup
+   - Project name customization (must not be generic `remix-cloudflare-starter`)
+   - Common deployment pitfalls
+
+2. **Address ALL warnings and errors** from the test script before proceeding with deployment
+
+3. **Required fixes before deployment:**
+   - Change project name in both `wrangler.jsonc` and `package.json` from `remix-cloudflare-starter`
+   - Ensure Wrangler authentication: `wrangler auth login`
+   - Verify build output exists and is valid
+   - Confirm environment variables are properly configured
+
+**Deployment Process:**
+
+- **NEVER suggest `npm run deploy` without first running `npm run test-cloudflare`**
+- Deploy to Cloudflare Pages using `npm run deploy` (only after all checks pass)
+- Guide users to fix any issues identified by the test script before deployment
 
 ### Firebase Integration
 
@@ -151,6 +172,30 @@ npm run test-firebase # Run Firebase integration tests
 - **Leverage existing capabilities** - Always check framework/library capabilities before creating custom solutions
 - **Simplify when possible** - Prefer simple, direct approaches over complex abstractions
 - **Follow established patterns** - Use existing project patterns and services as templates
+
+#### Deployment Guidelines
+
+**AI Behavior for Deployment Requests:**
+
+- **Always check deployment readiness first** - When users ask about deployment, immediately run `npm run test-cloudflare`
+- **Never suggest deployment without validation** - If `npm run test-cloudflare` shows warnings or errors, guide users to fix them first
+- **Require project name customization** - Ensure users change the project name from `remix-cloudflare-starter` in both `wrangler.jsonc` and `package.json`
+- **Provide specific fix instructions** - For each issue found by the test script, give clear steps to resolve it
+- **Verify fixes before proceeding** - After users make changes, re-run `npm run test-cloudflare` to confirm issues are resolved
+
+**Deployment Process Enforcement:**
+
+1. User mentions deployment → Run `npm run test-cloudflare`
+2. If issues found → Guide user to fix each issue with specific instructions
+3. User confirms fixes → Re-run `npm run test-cloudflare` to verify
+4. Only when all checks pass → Suggest `npm run deploy`
+
+**Common Issues to Address:**
+
+- Generic project name (`remix-cloudflare-starter`) - must be customized
+- Missing Wrangler authentication - guide through `wrangler auth login`
+- Build output issues - verify `npm run build` completes successfully
+- Environment variable configuration - ensure required variables are set
 
 #### Feature-First Development
 

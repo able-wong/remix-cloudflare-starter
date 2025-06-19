@@ -2,6 +2,8 @@
 
 A modern full-stack web application boilerplate featuring **Remix** and **Cloudflare Pages** with optional **Firebase** integration. Get from zero to production-ready application in minutes.
 
+> 🚨 **First Step**: After cloning, change the project name from `remix-cloudflare-starter` to something unique in both `wrangler.jsonc` and `package.json` before deploying!
+
 ## 🚀 What You Get
 
 - **Full-stack capabilities** with Remix server actions and loaders
@@ -34,9 +36,17 @@ git clone <your-repo-url>
 cd remix-cloudflare-starter
 npm install
 
-# 2. Start development
+# 2. Customize project name (IMPORTANT!)
+# Update project name in the following files:
+# - wrangler.jsonc (change "name" field)
+# - package.json (change "name" field)
+# Choose a unique name for your Cloudflare Pages deployment
+
+# 3. Start development
 npm run dev
 ```
+
+> 💡 **Important**: Change the project name from `remix-cloudflare-starter` to something unique for your project. This name will become part of your deployment URL: `your-project-name.pages.dev`
 
 Open [http://localhost:5173](http://localhost:5173) to see your app running!
 
@@ -44,21 +54,38 @@ Open [http://localhost:5173](http://localhost:5173) to see your app running!
 
 ### 1. Cloudflare Pages Deployment
 
-1. **Create Cloudflare Pages Project:**
-   - Go to [Cloudflare Pages](https://dash.cloudflare.com/pages)
-   - Create new project with a meaningful name (becomes your URL: `your-name.pages.dev`)
+1. **Customize Project Name (Required):**
 
-2. **Configure Deployment:**
+   **⚠️ Before deploying, you MUST change the project name from the generic `remix-cloudflare-starter`:**
+
+   ```bash
+   # Edit wrangler.jsonc
+   # Change: "name": "remix-cloudflare-starter"
+   # To: "name": "your-unique-project-name"
+
+   # Edit package.json
+   # Change: "name": "remix-cloudflare-starter"
+   # To: "name": "your-unique-project-name"
+   ```
+
+   > 💡 **Tip**: Use a descriptive name like `my-awesome-app`, `company-website`, or `portfolio-site`. This becomes your URL: `your-project-name.pages.dev`
+
+2. **Create Cloudflare Pages Project:**
+   - Go to [Cloudflare Pages](https://dash.cloudflare.com/pages)
+   - Create new project with the same name you used above
+   - Or let Wrangler create it automatically on first deployment
+
+3. **Configure Deployment:**
 
    ```bash
    # Login to Cloudflare
    wrangler auth login
 
-   # Update project name in wrangler.jsonc
-   # Change "name" field to match your Pages project name
+   # Verify your project name is updated
+   npm run test-cloudflare
    ```
 
-3. **Deploy:**
+4. **Deploy:**
 
    ```bash
    npm run deploy
@@ -75,13 +102,20 @@ If you don't need Firebase, you can skip this step and use the application as a 
 ## 🔧 Development Commands
 
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run deploy       # Deploy to Cloudflare Pages
-npm test            # Run tests
-npm run lint        # Lint code
-npm run format      # Format code
-npm run typecheck   # TypeScript checking
+# Development
+npm run dev             # Start development server
+npm run build           # Build for production
+npm run deploy          # Deploy to Cloudflare Pages
+
+# Testing & Quality
+npm test               # Run tests
+npm run lint           # Lint code
+npm run format         # Format code
+npm run typecheck      # TypeScript checking
+
+# Configuration Testing
+npm run test-cloudflare # Test Cloudflare setup and deployment readiness
+npm run test-firebase   # Test Firebase configuration (if using Firebase)
 ```
 
 ## 📁 Project Structure
@@ -109,7 +143,40 @@ functions/           # Cloudflare Pages functions
 
 ## ✅ Verify Your Setup
 
-After deployment, check:
+### Before Deployment
+
+Run the configuration test to ensure everything is ready:
+
+```bash
+npm run test-cloudflare
+```
+
+This will check:
+
+- ✅ Project name has been customized (not using generic `remix-cloudflare-starter`)
+- ✅ Wrangler authentication
+- ✅ Build process works
+- ✅ Deployment readiness
+
+### Firebase Configuration (Optional)
+
+If you're using Firebase services, test your Firebase setup:
+
+```bash
+npm run test-firebase
+```
+
+This will check:
+
+- ✅ Environment variables are properly configured
+- ✅ Firebase configuration JSON is valid
+- ✅ Service account credentials work
+- ✅ Firestore database connection
+- ✅ Authentication setup
+
+### After Deployment
+
+After deployment, verify:
 
 - ✅ Site loads at `https://your-project-name.pages.dev`
 - ✅ Development server works: `npm run dev`
@@ -120,17 +187,22 @@ After deployment, check:
 
 **Deployment Issues:**
 
-- Ensure Wrangler is authenticated: `wrangler auth login`
-- Check project name matches in `wrangler.jsonc`
+- **Project name conflicts**: If you get deployment errors, ensure you've changed the project name from `remix-cloudflare-starter` to something unique
+- **Authentication issues**: Ensure Wrangler is authenticated: `wrangler auth login`
+- **Configuration problems**: Check project name matches in both `wrangler.jsonc` and `package.json`
+- **Diagnosis tool**: Run `npm run test-cloudflare` to identify and fix deployment issues
 
 **Development Issues:**
 
-- Clear cache: `rm -rf node_modules package-lock.json && npm install`
-- Check Node.js version: `node --version` (should be 18+)
+- **Dependency issues**: Clear cache: `rm -rf node_modules package-lock.json && npm install`
+- **Version compatibility**: Check Node.js version: `node --version` (should be 18+)
 
 **Firebase Issues:**
 
-- See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for complete Firebase troubleshooting
+- **Configuration problems**: Run `npm run test-firebase` to diagnose Firebase setup issues
+- **Environment variables**: Ensure `.dev.vars` exists and contains all required Firebase variables
+- **Service account**: Verify `FIREBASE_SERVICE_ACCOUNT_KEY` is valid JSON
+- **Complete guide**: See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for detailed Firebase troubleshooting
 
 ## 📚 Resources
 
