@@ -19,31 +19,24 @@ Deployed on Cloudflare Pages with optional Firebase backend (auth, database, sto
 
 ## Quick Reference
 
-### Firebase Service Selection
+### Firebase Service Selection Decision Tree
 
-#### Primary Decision: Authentication Requirements
+#### 1. Does this operation need server-only secrets?
 
-**For PUBLIC operations (no auth needed):**
+- **YES** (payment processing, service account ops, third-party API secrets) → `firebase-restapi.ts`
+- **NO** → Continue to step 2
 
-- **Interactive UI** → `firebase.ts` (better UX, real-time)
-- **SEO/SSR needs** → `firebase-restapi.ts` (server-rendered)
+#### 2. What's the execution context?
 
-**For AUTHENTICATED operations:**
+- **Remix loaders/actions** → `firebase-restapi.ts` (already server-side)
+- **React components** → `firebase.ts` (better UX, reduce server load)
 
-- **Server-side** → `firebase-restapi.ts` (secure, but requires idToken passing)
-- **Client-side** → `firebase.ts` (easier auth handling, direct Firebase Auth)
+#### Simple Rules:
 
-#### Context-Based Rules:
-
-- **Remix loaders/actions** → `firebase-restapi.ts`
-- **React components/hooks** → `firebase.ts`
-- **Admin operations** → Consider client-side `firebase.ts` for easier auth
-
-#### Authentication Complexity:
-
-- `firebase-restapi.ts` requires manual idToken management
-- `firebase.ts` handles Firebase Auth automatically
-- For auth-heavy features, prefer `firebase.ts` unless server security is critical
+- **Server secrets required** → `firebase-restapi.ts`
+- **Client-side interactions** → `firebase.ts`
+- **Admin operations** → Usually `firebase.ts` (unless server secrets needed)
+- **When in doubt** → `firebase.ts` (reduces Cloudflare CPU usage)
 
 ### Implementation Phases
 
@@ -53,9 +46,9 @@ Deployed on Cloudflare Pages with optional Firebase backend (auth, database, sto
 
 ### When to Skip Mock Phase
 
-- User explicitly requests direct database
-- Simple data display with stable requirements
-- Database already configured + specific requirements
+- User explicitly requests direct database implementation
+- Simple data display with clear, stable requirements
+- Database is already configured and requirements are very specific
 
 ### Component Priority
 
@@ -99,24 +92,33 @@ npm run test-firebase # Run Firebase integration tests
 
 #### Service Selection Decision Tree
 
-**Use `firebase-restapi.ts` (REST API) if ANY of these conditions apply:**
+**Use `firebase-restapi.ts` (REST API) when:**
 
-- Operation runs in Remix **server-side** context (loaders/actions)
-- Need **authentication validation** on the server
-- Performing **admin operations** that require server-side security
+- Operation **requires server-only secrets** (payment processing, service account operations, third-party API secrets)
+- Running in **Remix server context** (loaders/actions) and no client-side requirements
 
-**Use `firebase.ts` (Client SDK) for ALL other scenarios:**
+**Use `firebase.ts` (Client SDK) for:**
 
-- Client-side data operations in components
-- Real-time listeners and subscriptions
-- Public read operations (search, browse)
+- **Client-side data operations** in React components
+- **Real-time listeners** and subscriptions
+- **Admin operations** (unless server secrets required)
+- **Public read operations** (search, browse)
+- **When in doubt** (reduces Cloudflare CPU usage)
+
+#### Simple Rules:
+
+- **Server secrets needed** → `firebase-restapi.ts`
+- **Client interactions** → `firebase.ts`
+- **Remix loaders/actions** → `firebase-restapi.ts` (already server-side)
+- **React components** → `firebase.ts` (better UX, reduce server load)
 
 #### Authentication & Authorization
 
 - **Use Firebase Auth directly** - Leverage Firebase Auth capabilities without custom wrapper services
-- **Simple authorization patterns** - Use route-level protection in Remix loaders
+- **Client-side preference** - Most auth operations work better with `firebase.ts` for simpler token handling
+- **Simple authorization patterns** - Use route-level protection in Remix loaders when needed
 - **Add role-based auth only when necessary** - Implement complex role systems only if users have different functional roles
-- **Prefer simple checks** - Email-based admin checks or basic user properties over complex authorization layers
+- **Server-side auth only when required** - Use `firebase-restapi.ts` auth when server secrets are involved
 
 #### Environment Configuration
 
@@ -133,7 +135,8 @@ npm run test-firebase # Run Firebase integration tests
 - Use Firebase ID tokens for user authentication in server-side operations
 - Implement proper user authorization checks before data operations
 - **firebase-restapi.ts** supports optional authentication: Pass `idToken` for authenticated access, omit for public access
-- **firebase.ts** is a client-side SDK and interact with Firebase services directly in the browser
+- **firebase.ts** handles authentication automatically through Firebase Auth SDK
+- **Prefer client-side auth** unless server secrets are required
 
 #### Data Operations
 
@@ -212,6 +215,8 @@ Before creating implementation plans, clarify key requirements with users if pro
      - Choose existing project (from Step 1 of FIREBASE_SETUP.md)
      - Accept default `firestore.rules` and `firestore.indexes.json` files
    - **Reference**: See FIREBASE_SETUP.md for complete Firebase project setup if needed
+   - After `firebase init`, run `npm run test-firebase` to verify Firebase setup
+   - If `npm run test-firebase` fails, guide user to fix issues before proceeding
 2. Verify `.dev.vars` exists and contains: `FIREBASE_CONFIG`, `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_KEY`
 3. Confirm `firestore.rules` exists and permissions match feature requirements
 4. Run `firebase deploy --only firestore:rules` - must succeed
@@ -301,10 +306,10 @@ When features require capabilities beyond the current tech stack, recommend thes
 ### Usage Patterns
 
 ```typescript
-// In loaders (client-side)
+// In loaders (server-side for SSR)
 export async function loader({ context }: LoaderFunctionArgs) {
   const clientEnv = getClientEnv(context);
-  // Only safe variables available
+  // Only safe variables available for client hydration
 }
 
 // In actions (server-side)
@@ -483,11 +488,14 @@ describe('ServiceName', () => {
 - Follow responsive design principles
 - Create theme variables for consistent design
 
-### Component Selection Priority
+### DaisyUI Form Alignment
 
-1. **DaisyUI first**: Use DaisyUI components for common UI elements (including loading states, skeletons, form controls)
-2. **External React components**: If DaisyUI doesn't have what you need
-3. **Custom components**: Create from scratch and store in `app/components/` folder
+For proper form layout and alignment, DaisyUI requires specific class combinations:
+
+- **Form containers**: Use `form-control w-full` for proper spacing and alignment
+- **Input elements**: Always include `w-full` class: `input input-bordered w-full`
+- **Structure pattern**: `<div className="form-control w-full"><input className="input input-bordered w-full">`
+- **Common issue**: Missing `w-full` classes cause left-aligned, narrow form elements
 
 ## Performance Considerations
 
@@ -495,3 +503,21 @@ describe('ServiceName', () => {
 - Implement proper code splitting
 - Minimize client-side JavaScript
 - Follow Remix data loading patterns
+
+## Common Implementation Pitfalls & Solutions
+
+### Theme Toggle Hydration
+
+- **Issue**: SSR/client theme state mismatch causes hydration warnings
+- **Root Cause**: Server renders with default theme, client may have different theme stored
+- **Solution**: Use `useState(null)` initially, set theme in `useEffect` after client hydration
+- **Pattern**: Always defer theme-dependent rendering until client-side
+- **Code Example**: Check `theme === null` and show loading state until hydration complete
+
+### Firebase Auth in Forms
+
+- **Issue**: ID tokens are async but forms submit synchronously, causing 401 Unauthorized errors
+- **Root Cause**: Form submission happens before ID token retrieval completes
+- **Solution**: `event.preventDefault()` → `await getIdToken()` → set hidden field → `form.submit()`
+- **Critical**: Never rely on synchronous token access in form handlers
+- **Pattern**: Always use async token retrieval with manual form submission

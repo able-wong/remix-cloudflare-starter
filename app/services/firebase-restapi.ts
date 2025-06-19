@@ -58,6 +58,11 @@
  *   // Access public collections (controlled by Firebase Security Rules)
  *   const publicBooks = await firebaseApi.getCollection('public-books');
  *
+ *   // All CRUD operations support public access when Firestore rules allow
+ *   const newBook = await firebaseApi.createDocument('books', bookData);
+ *   const updatedBook = await firebaseApi.updateDocument('books/book123', updateData);
+ *   await firebaseApi.deleteDocument('books/book456');
+ *
  *   return json({ books: publicBooks });
  * }
  * ```
@@ -87,6 +92,9 @@
  * - Authentication is optional - use for public vs authenticated operations
  * - Firebase Security Rules control access to collections and documents
  * - Token verification is performed automatically when idToken is provided
+ * - URL construction is secured against path traversal and injection attacks
+ * - All input parameters are validated and sanitized before use
+ * - Built-in protection against common URL-based security vulnerabilities
  */
 
 import { LoggerFactory, type Logger } from '~/utils/logger';
@@ -203,7 +211,7 @@ export class FirebaseRestApi {
    */
   async verifyAndSetIdToken(idToken: string): Promise<void> {
     const response = await this.boundFetch(
-      `https://www.googleapis.com/identitytoolkit/v3/relyingparty/getAccountInfo?key=${this.config.apiKey}`,
+      this.buildAuthUrl('getAccountInfo'),
       {
         method: 'POST',
         headers: {
@@ -254,7 +262,7 @@ export class FirebaseRestApi {
     const headers = this.prepareHeaders(false); // Public access allowed
 
     const response = await this.boundFetch(
-      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${collectionName}`,
+      this.buildFirestoreUrl(collectionName, true),
       {
         method: 'GET',
         headers,
@@ -290,7 +298,7 @@ export class FirebaseRestApi {
     const headers = this.prepareHeaders(false); // Public access allowed
 
     const response = await this.boundFetch(
-      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${documentPath}`,
+      this.buildFirestoreUrl(documentPath, false),
       {
         method: 'GET',
         headers,
@@ -326,10 +334,10 @@ export class FirebaseRestApi {
     collectionName: string,
     data: Partial<FirestoreDocument>,
   ): Promise<FirestoreDocument> {
-    const headers = this.prepareHeaders(true); // Authentication required
+    const headers = this.prepareHeaders(false); // Public access allowed (when Firestore rules permit)
 
     const response = await this.boundFetch(
-      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${collectionName}`,
+      this.buildFirestoreUrl(collectionName, true),
       {
         method: 'POST',
         headers,
@@ -355,22 +363,22 @@ export class FirebaseRestApi {
    *
    * Updates specific fields in an existing Firestore document.
    * Only updates the fields provided - other fields remain unchanged.
-   * Requires authentication - ID token must be provided during construction.
+   * Supports both public and authenticated access based on Firebase Security Rules.
    *
    * @param documentPath - Full path to the document (e.g., 'books/book123')
    * @param data - Partial document data with only fields to update
    * @returns Promise<FirestoreDocument> - The updated document with new updateTime
    *
-   * @throws Error - If document doesn't exist, authentication fails, or update is denied
+   * @throws Error - If document doesn't exist, access is denied, or update is denied
    */
   async updateDocument(
     documentPath: string,
     data: Partial<FirestoreDocument>,
   ): Promise<FirestoreDocument> {
-    const headers = this.prepareHeaders(true); // Authentication required
+    const headers = this.prepareHeaders(false); // Public access allowed (when Firestore rules permit)
 
     const response = await this.boundFetch(
-      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${documentPath}`,
+      this.buildFirestoreUrl(documentPath, false),
       {
         method: 'PATCH',
         headers,
@@ -395,16 +403,16 @@ export class FirebaseRestApi {
    * DELETE DOCUMENT
    *
    * Delete a document from Firestore.
-   * Requires authentication - ID token must be provided during construction.
+   * Supports both public and authenticated access based on Firebase Security Rules.
    *
    * @param documentPath - Full path to the document (e.g., 'books/book123')
-   * @throws Error - If document doesn't exist, authentication fails, or deletion is denied
+   * @throws Error - If document doesn't exist, access is denied, or deletion is denied
    */
   async deleteDocument(documentPath: string): Promise<void> {
-    const headers = this.prepareHeaders(true); // Authentication required
+    const headers = this.prepareHeaders(false); // Public access allowed (when Firestore rules permit)
 
     const response = await this.boundFetch(
-      `https://firestore.googleapis.com/v1/projects/${this.config.projectId}/databases/(default)/documents/${documentPath}`,
+      this.buildFirestoreUrl(documentPath, false),
       {
         method: 'DELETE',
         headers,
@@ -419,6 +427,145 @@ export class FirebaseRestApi {
         action: 'delete_document',
       });
       throw new Error(`Failed to delete document: ${JSON.stringify(error)}`);
+    }
+  }
+
+  /**
+   * Validates and sanitizes collection names to prevent path traversal attacks
+   * @param collectionName - The collection name to validate
+   * @returns string - The validated collection name
+   * @throws Error - If collection name contains invalid characters
+   */
+  private validateCollectionName(collectionName: string): string {
+    if (!collectionName || typeof collectionName !== 'string') {
+      throw new Error('Collection name must be a non-empty string');
+    }
+
+    // Remove leading/trailing whitespace
+    const trimmed = collectionName.trim();
+
+    if (trimmed.length === 0) {
+      throw new Error('Collection name cannot be empty');
+    }
+
+    // Check for path traversal attempts
+    if (trimmed.includes('..') || trimmed.includes('/')) {
+      throw new Error(
+        'Collection name cannot contain path separators or traversal sequences',
+      );
+    }
+
+    // Check for URL-unsafe characters that could cause injection
+    if (
+      trimmed.includes('?') ||
+      trimmed.includes('#') ||
+      trimmed.includes('&')
+    ) {
+      throw new Error(
+        'Collection name cannot contain URL query or fragment characters',
+      );
+    }
+
+    // Check for control characters
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001f\u007f]/.test(trimmed)) {
+      throw new Error('Collection name cannot contain control characters');
+    }
+
+    return trimmed;
+  }
+
+  /**
+   * Validates and sanitizes document paths to prevent path traversal attacks
+   * @param documentPath - The document path to validate (e.g., 'collection/docId' or 'collection/subcollection/docId')
+   * @returns string - The validated document path
+   * @throws Error - If document path contains invalid characters or patterns
+   */
+  private validateDocumentPath(documentPath: string): string {
+    if (!documentPath || typeof documentPath !== 'string') {
+      throw new Error('Document path must be a non-empty string');
+    }
+
+    // Remove leading/trailing whitespace
+    const trimmed = documentPath.trim();
+
+    if (trimmed.length === 0) {
+      throw new Error('Document path cannot be empty');
+    }
+
+    // Check for path traversal attempts
+    if (trimmed.includes('..')) {
+      throw new Error('Document path cannot contain path traversal sequences');
+    }
+
+    // Check for URL-unsafe characters that could cause injection
+    if (
+      trimmed.includes('?') ||
+      trimmed.includes('#') ||
+      trimmed.includes('&')
+    ) {
+      throw new Error(
+        'Document path cannot contain URL query or fragment characters',
+      );
+    }
+
+    // Check for control characters
+    // eslint-disable-next-line no-control-regex
+    if (/[\u0000-\u001f\u007f]/.test(trimmed)) {
+      throw new Error('Document path cannot contain control characters');
+    }
+
+    // Validate path structure: should be collection/doc or collection/doc/subcol/doc etc.
+    const pathParts = trimmed.split('/');
+    if (pathParts.length < 2 || pathParts.length % 2 !== 0) {
+      throw new Error(
+        'Document path must follow the pattern: collection/document[/subcollection/subdocument]...',
+      );
+    }
+
+    // Ensure no empty parts
+    if (pathParts.some((part) => part.trim().length === 0)) {
+      throw new Error('Document path cannot contain empty segments');
+    }
+
+    return trimmed;
+  }
+
+  /**
+   * Securely constructs Firebase Auth API URLs
+   * @param endpoint - The API endpoint (e.g., 'getAccountInfo')
+   * @returns string - The securely constructed URL
+   */
+  private buildAuthUrl(endpoint: string): string {
+    const baseUrl =
+      'https://www.googleapis.com/identitytoolkit/v3/relyingparty/';
+    const url = new URL(endpoint, baseUrl);
+    url.searchParams.set('key', this.config.apiKey);
+    return url.toString();
+  }
+
+  /**
+   * Securely constructs Firestore API URLs
+   * @param path - The Firestore path (collection name or document path)
+   * @param isCollection - Whether this is a collection (true) or document (false) URL
+   * @returns string - The securely constructed URL
+   */
+  private buildFirestoreUrl(
+    path: string,
+    isCollection: boolean = true,
+  ): string {
+    const baseUrl = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(
+      this.config.projectId,
+    )}/databases/(default)/documents/`;
+
+    if (isCollection) {
+      const validPath = this.validateCollectionName(path);
+      const url = new URL(validPath, baseUrl);
+      return url.toString();
+    } else {
+      const validPath = this.validateDocumentPath(path);
+      const url = new URL(validPath, baseUrl);
+      return url.toString();
     }
   }
 
