@@ -68,6 +68,9 @@ npm run build        # Build for production
 npm run format      # Format code
 npm run import-firestore data/filename.json collection-name --clear # Import Firestore data
 npm run test-firebase # Run Firebase integration tests
+
+# Installation (use --legacy-peer-deps due to Wrangler v4/Remix v2 compatibility)
+npm install --legacy-peer-deps
 ```
 
 ## Project Setup
@@ -91,6 +94,10 @@ npm run test-firebase # Run Firebase integration tests
    - Ensure Wrangler authentication: `wrangler auth login`
    - Verify build output exists and is valid
    - Confirm environment variables are properly configured
+
+**Known Issues:**
+
+- **npm install fails with ERESOLVE errors**: This project uses Wrangler v4 which has peer dependency conflicts with Remix v2. Always use `npm install --legacy-peer-deps` to resolve this. This is a known compatibility issue between newer Wrangler versions and current Remix versions.
 
 **Deployment Process:**
 
@@ -492,7 +499,23 @@ scripts/             # Data import and Firebase configuration scripts
 
 ### Test Coverage Requirements
 
-- All code in the `app/services/` and `app/utils/` folder must be covered by tests
+#### Mandatory Test Coverage
+
+- **Business Logic**: All code in `app/services/` must be covered by tests
+- **Pure Utilities**: Environment handling (`env.ts`), logging (`logger.ts`), data processing, validation functions in `app/utils/`
+
+#### Optional Test Coverage
+
+- **React Utilities**: Hooks, React-specific helpers, component utilities, theme helpers in `app/utils/`
+- **Simple Type Definitions**: Interfaces and type-only files
+
+#### Testing Classification Guidelines
+
+- **Test Required**: Functions that process data, make external calls, handle business logic, or have complex conditional logic
+- **Test Optional**: React hooks, component helpers, simple getters/setters, theme utilities, or UI-only utilities that are difficult to test in isolation
+
+#### General Testing Requirements
+
 - Use Jest as the primary testing framework
 - Place tests in `app/__tests__/` directory, mirroring the service structure
 - Aim for high test coverage on business logic

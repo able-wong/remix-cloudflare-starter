@@ -34,7 +34,9 @@ A modern full-stack web application boilerplate featuring **Remix** and **Cloudf
 # 1. Clone and install
 git clone <your-repo-url>
 cd remix-cloudflare-starter
-npm install
+
+# Install dependencies (use --legacy-peer-deps due to Wrangler v4/Remix v2 compatibility)
+npm install --legacy-peer-deps
 
 # 2. Customize project name (IMPORTANT!)
 # Update project name in the following files:
@@ -184,6 +186,10 @@ After deployment, verify:
 - ✅ Firebase connection (if enabled)
 
 ## 🚨 Troubleshooting
+
+**Dependency Installation:**
+
+- **npm install fails with ERESOLVE errors**: This project uses Wrangler v4 which has peer dependency conflicts with Remix v2. Use `npm install --legacy-peer-deps` to resolve this. This is a known compatibility issue between newer Wrangler versions and current Remix versions.
 
 **Deployment Issues:**
 
