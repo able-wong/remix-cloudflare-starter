@@ -188,14 +188,25 @@ npm run test-firebase # Run Firebase integration tests
 1. User mentions deployment → Run `npm run test-cloudflare`
 2. If issues found → Guide user to fix each issue with specific instructions
 3. User confirms fixes → Re-run `npm run test-cloudflare` to verify
-4. Only when all checks pass → Suggest `npm run deploy`
+4. **Remind about environment variables** → Guide user to set up environment variables in Cloudflare Pages dashboard
+5. Only when all checks pass → Suggest `npm run deploy`
+
+**Environment Variables Setup Reminder:**
+
+- **Always remind users** to configure environment variables in Cloudflare Pages before deployment
+- **Guide users to**: Cloudflare Dashboard > Pages > [Project Name] > Settings > Environment Variables
+- **Production environment variables**: Copy the same variables from `.dev.vars` to Cloudflare Pages
+- **Firebase integration**: If using Firebase, ensure `FIREBASE_CONFIG`, `FIREBASE_PROJECT_ID`, and other Firebase variables are set
+- **Security note**: Never commit `.dev.vars` to version control - these are local development only
 
 **Common Issues to Address:**
 
 - Generic project name (`remix-cloudflare-starter`) - must be customized
 - Missing Wrangler authentication - guide through `wrangler auth login`
 - Build output issues - verify `npm run build` completes successfully
-- Environment variable configuration - ensure required variables are set
+- **Environment variables not configured in Cloudflare Pages** - remind users to set up production environment variables
+- Missing or invalid `.dev.vars` file for local development
+- Firebase configuration missing (if using Firebase features)
 
 #### Feature-First Development
 
