@@ -90,6 +90,7 @@ npm run test-firebase # Run Firebase integration tests
 - **Firebase Tools**: Use `firebase-tools` CLI for project setup, security rules deployment, and administrative tasks (not for data import - use custom scripts)
 - **Data Import**: Use custom Node.js script in `scripts/` folder for importing JSON data to Firestore (Firebase CLI doesn't support data import)
 - **Environment Configuration**: See Firebase Integration Patterns section for complete setup details
+- **Firebase CLI Version**: Recommended v14.7.0 or later for optimal compatibility (minimum v14.0.0)
 - Firebase services: Authentication, Firestore Database, Storage
 
 ## Architectural Decisions & Patterns

@@ -33,7 +33,12 @@ Ensure you have completed from README.md:
 
 - **jq** (JSON processor) - installation instructions below
 
-**📌 Note about Firebase CLI**: The Firebase CLI is primarily used for deploying security rules and project management. For data import, this project uses custom Node.js scripts in the `scripts/` folder, as Firebase CLI doesn't provide direct JSON data import capabilities.
+**📌 Notes about Firebase CLI**:
+
+- The Firebase CLI is primarily used for deploying security rules and project management
+- For data import, this project uses custom Node.js scripts in the `scripts/` folder, as Firebase CLI doesn't provide direct JSON data import capabilities
+- **Version Requirement**: This guide and testing script were developed with Firebase CLI v14.7.0. While older versions (v14.0.0+) should work, upgrading to v14.7.0 or later is recommended for optimal compatibility
+- The configuration test script will automatically check your Firebase CLI version and provide upgrade recommendations if needed
 
 ## 🚀 Step 1: Create Firebase Project
 
@@ -205,13 +210,57 @@ jq --version
    ```
    🔥 Firebase Configuration Test
    ========================================
+   Testing Firebase environment variables and configuration...
+   ℹ️  This script was tested with Firebase CLI v14.7.0
+      If you encounter issues, consider upgrading to v14.7.0 or later
 
+   🔍 Testing Environment Variables...
    ✅ Found required variable: FIREBASE_PROJECT_ID
    ✅ Found required variable: FIREBASE_SERVICE_ACCOUNT_KEY
    ✅ Found required variable: FIREBASE_CONFIG
+   ✅ Found optional variable: APP_NAME
+
+   🔍 Testing Firebase Client Configuration...
    ✅ FIREBASE_CONFIG contains all required fields
+   ✅ Project IDs are consistent between FIREBASE_CONFIG and FIREBASE_PROJECT_ID
+
+   🔍 Testing Firebase Admin SDK Configuration...
+   ✅ FIREBASE_SERVICE_ACCOUNT_KEY contains all required fields
+   ✅ Service account type is valid
+   ✅ Project IDs are consistent between service account and FIREBASE_PROJECT_ID
+   ✅ Private key format appears valid
+
+   🔍 Testing Firebase Project Files...
+   ✅ .firebaserc configuration is valid and matches FIREBASE_PROJECT_ID
+   ✅ firebase.json includes Firestore configuration
+   ✅ Firestore rules file found: firestore.rules
+   ✅ Firestore indexes file found: firestore.indexes.json
+   ✅ firestore.rules file appears to be valid
+
+   🔍 Testing Firebase CLI Setup...
+   ✅ Firebase CLI is installed: 14.7.0
+   ✅ Firebase CLI version matches tested version 14.7.0 - optimal compatibility
+   ✅ Firebase CLI authenticated as: your-email@example.com
+   ✅ Firebase CLI project matches FIREBASE_PROJECT_ID: your-project-id
+
+   🔍 Testing Firebase Deployment Readiness...
+   ✅ Firestore rules syntax is valid (dry-run deployment passed)
+   ✅ Firebase deployment appears ready (rules validation passed)
+   ✅ Firebase CLI can access project list - authentication is working
+
+   🔍 Testing Firebase Admin SDK Initialization...
    ✅ Firebase Admin SDK initialized successfully
+
+   🔍 Testing Firestore Connection...
    ✅ Firestore connection successful
+   ✅ Firestore write permissions confirmed
+   ✅ Test document cleanup successful
+
+   📊 Configuration Test Summary
+   ==================================================
+   ✅ Successes: 26
+   ⚠️  Warnings: 0
+   ❌ Errors: 0
 
    🎉 All tests passed! Your Firebase configuration is ready to use.
    ```
@@ -224,7 +273,19 @@ jq --version
    **Common fixes:**
    - Verify `.dev.vars` file exists in project root
    - Check that JSON strings are properly formatted (no line breaks)
-   - Ensure project IDs match across all configurations
+   - Ensure project IDs match across all configurations   **What the test covers:**
+
+   The Firebase configuration test performs comprehensive validation including:
+
+   - ✅ **Environment Variables**: Checks all required Firebase configuration variables
+   - ✅ **JSON Validation**: Ensures Firebase configurations are properly formatted
+   - ✅ **Project Consistency**: Verifies project IDs match across all configurations
+   - ✅ **File Structure**: Confirms Firebase project files (.firebaserc, firebase.json, etc.) exist and are valid
+   - ✅ **CLI Version**: Checks Firebase CLI version and provides upgrade recommendations
+   - ✅ **Authentication**: Verifies Firebase CLI is authenticated and has proper permissions
+   - ✅ **Deployment Readiness**: Tests that Firebase rules can be deployed successfully
+   - ✅ **SDK Initialization**: Confirms Firebase Admin SDK can connect to your project
+   - ✅ **Database Connectivity**: Tests Firestore read/write operations and permissions
 
 ## ✅ Step 8: Test Data Import Script
 
