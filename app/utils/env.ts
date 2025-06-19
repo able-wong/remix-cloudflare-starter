@@ -64,7 +64,7 @@ export function getClientEnv(context: CloudflareContext): ClientEnv {
   if (firebaseConfig) {
     try {
       parsedFirebaseConfig = JSON.parse(firebaseConfig);
-    } catch (error) {
+    } catch {
       throw new Error(
         'FIREBASE_CONFIG environment variable contains invalid JSON. Please ensure it is properly formatted.',
       );

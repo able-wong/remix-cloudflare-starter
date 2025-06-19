@@ -630,7 +630,7 @@ export async function createFirebaseRestApi(
   let firebaseConfig: { apiKey: string };
   try {
     firebaseConfig = JSON.parse(serverEnv.FIREBASE_CONFIG);
-  } catch (error) {
+  } catch {
     throw new Error(
       'FIREBASE_CONFIG environment variable contains invalid JSON. Please ensure it is properly formatted.',
     );
