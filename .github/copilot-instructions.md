@@ -19,24 +19,19 @@ Deployed on Cloudflare Pages with optional Firebase backend (auth, database, sto
 
 ## Quick Reference
 
-### Firebase Service Selection Decision Tree
+### Firebase Service Selection - Simple Rules
 
-#### 1. Does this operation need server-only secrets?
+**Context-Based Selection (Only consideration needed):**
 
-- **YES** (payment processing, service account ops, third-party API secrets) → `firebase-restapi.ts`
-- **NO** → Continue to step 2
+- **Remix loaders/actions** → `firebase-restapi.ts` (server-side)
+- **React components** → `firebase.ts` (client-side)
+- **Authentication** → Always `firebase.ts` (client-side only)
 
-#### 2. What's the execution context?
+**Examples:**
 
-- **Remix loaders/actions** → `firebase-restapi.ts` (already server-side)
-- **React components** → `firebase.ts` (better UX, reduce server load)
-
-#### Simple Rules:
-
-- **Server secrets required** → `firebase-restapi.ts`
-- **Client-side interactions** → `firebase.ts`
-- **Admin operations** → Usually `firebase.ts` (unless server secrets needed)
-- **When in doubt** → `firebase.ts` (reduces Cloudflare CPU usage)
+- Admin book CRUD in loaders → `firebase-restapi.ts`
+- Real-time search in components → `firebase.ts`
+- User login/logout → `firebase.ts`
 
 ### Implementation Phases
 
@@ -125,43 +120,73 @@ npm install --legacy-peer-deps
 
 ### Firebase Integration Patterns
 
-#### Service Selection Decision Tree
-
-**Use `firebase-restapi.ts` (REST API) when:**
-
-- Operation **requires server-only secrets** (payment processing, service account operations, third-party API secrets)
-- Running in **Remix server context** (loaders/actions) and no client-side requirements
-
-**Use `firebase.ts` (Client SDK) for:**
-
-- **Client-side data operations** in React components
-- **Real-time listeners** and subscriptions
-- **Admin operations** (unless server secrets required)
-- **Public read operations** (search, browse)
-- **When in doubt** (reduces Cloudflare CPU usage)
-
-#### Simple Rules:
-
-- **Server secrets needed** → `firebase-restapi.ts`
-- **Client interactions** → `firebase.ts`
-- **Remix loaders/actions** → `firebase-restapi.ts` (already server-side)
-- **React components** → `firebase.ts` (better UX, reduce server load)
-
 #### Authentication & Authorization
 
-- **Use Firebase Auth directly** - Leverage Firebase Auth capabilities without custom wrapper services
-- **Client-side preference** - Most auth operations work better with `firebase.ts` for simpler token handling
-- **Simple authorization patterns** - Use route-level protection in Remix loaders when needed
-- **Add role-based auth only when necessary** - Implement complex role systems only if users have different functional roles
-- **Server-side auth only when required** - Use `firebase-restapi.ts` auth when server secrets are involved
+**Firebase Authentication Pattern:**
+
+- **Always client-side** - Use Firebase client SDK in browser
+- **Never server-side** - Don't use Firebase REST API for auth
+- **Standard form handling** - Use regular form submission with client-side auth
+
+**Correct Implementation:**
+
+```tsx
+// Client-side authentication (React component)
+const handleLogin = async (email: string, password: string) => {
+  const auth = firebase.auth();
+  await auth.signInWithEmailAndPassword(email, password);
+  // Firebase manages auth state automatically
+};
+
+// Server-side verification (Remix loader)
+export async function loader({ request }: LoaderFunctionArgs) {
+  const idToken = getIdTokenFromRequest(request);
+  if (!idToken || !isValidFirebaseToken(idToken)) {
+    return redirect('/admin/login');
+  }
+  // Proceed with authenticated operations
+}
+```
+
+**Never Do:**
+
+- ❌ Server-side Firebase authentication
+- ❌ Complex client→server auth token passing
+- ❌ Manual form submission after client auth
 
 #### Environment Configuration
 
-- `FIREBASE_CONFIG`: Client-safe configuration (contains public API keys and identifiers)
-- `FIREBASE_PROJECT_ID`: Project identifier for server-side operations
-- `FIREBASE_SERVICE_ACCOUNT_KEY`: Service account credentials for project setup, such as data loading script in `scripts/` folder
-- Setup: if `.dev.vars` file does not exist, copy `.dev.vars.example` to `.dev.vars`. Otherwise, populate `.dev.vars` with Firebase configuration
-- Add same variables as secrets in Cloudflare Pages project settings
+**Environment File Setup:**
+
+```bash
+# Check if .dev.vars exists, create from example if not
+if [ ! -f .dev.vars ]; then
+  cp .dev.vars.example .dev.vars
+  echo "Created .dev.vars from example - please configure with your Firebase settings"
+else
+  echo ".dev.vars already exists - verify it contains required Firebase settings"
+fi
+```
+
+**Required Variables in .dev.vars:**
+
+```
+FIREBASE_CONFIG={"apiKey":"...","authDomain":"...","projectId":"..."}
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
+```
+
+**Verification:**
+
+```bash
+npm run test-firebase  # Must pass before proceeding
+```
+
+**Common Setup Issues:**
+
+- Missing `.dev.vars` → Copy from `.dev.vars.example`
+- Invalid Firebase config → Check Firebase Console settings
+- Service account key missing → Download from Firebase Console > Service Accounts
 
 #### Security Best Practices
 
@@ -486,6 +511,23 @@ scripts/             # Data import and Firebase configuration scripts
 - Use TypeScript interfaces to define service contracts
 - Make services easily mockable for testing
 - Follow SOLID principles for maintainable code
+- **REQUIRED: Document service context** - All Firebase services must include header comments specifying usage context
+
+**Service Documentation Standard:**
+
+```typescript
+/**
+ * [ServiceName] - [Description]
+ *
+ * USAGE CONTEXT: [CLIENT-SIDE | SERVER-SIDE]
+ *
+ * CLIENT-SIDE: Safe for React components, browser environments
+ * SERVER-SIDE: Safe for Remix loaders/actions, server environments
+ *
+ * @example
+ * // Show typical usage pattern
+ */
+```
 
 ## Data Patterns Reference
 
