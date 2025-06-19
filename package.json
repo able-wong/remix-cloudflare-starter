@@ -17,6 +17,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "import-firestore": "node scripts/import-firestore-data.js",
+    "fetch-firebase": "node scripts/firebase-data-fetcher.js",
     "test-firebase": "node scripts/test-firebase-config.js",
     "test-cloudflare": "node scripts/test-cloudflare-config.js"
   },
@@ -45,7 +46,7 @@
     "@typescript-eslint/parser": "^8.34.1",
     "autoprefixer": "^10.4.19",
     "daisyui": "^5.0.40",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.5.0",
     "eslint": "^8.38.0",
     "eslint-config-prettier": "^8.10.0",
     "eslint-import-resolver-typescript": "^3.6.1",

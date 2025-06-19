@@ -42,7 +42,6 @@ npm install --legacy-peer-deps
 # Update project name in the following files:
 # - wrangler.jsonc (change "name" field)
 # - package.json (change "name" field)
-# Choose a unique name for your Cloudflare Pages deployment
 
 # 3. Start development
 npm run dev
@@ -63,14 +62,14 @@ Open [http://localhost:5173](http://localhost:5173) to see your app running!
    ```bash
    # Edit wrangler.jsonc
    # Change: "name": "remix-cloudflare-starter"
-   # To: "name": "your-unique-project-name"
+   # To: "name": "your-chosen-app-name"
 
    # Edit package.json
    # Change: "name": "remix-cloudflare-starter"
-   # To: "name": "your-unique-project-name"
+   # To: "name": "your-chosen-app-name"
    ```
 
-   > 💡 **Tip**: Use a descriptive name like `my-awesome-app`, `company-website`, or `portfolio-site`. This becomes your URL: `your-project-name.pages.dev`
+   > 💡 **Name Examples**: `bookfinder-hub`, `literaly-search`, `my-portfolio`, `company-website`. Pick something that represents your project!
 
 2. **Create Cloudflare Pages Project:**
    - Go to [Cloudflare Pages](https://dash.cloudflare.com/pages)
@@ -118,6 +117,10 @@ npm run typecheck      # TypeScript checking
 # Configuration Testing
 npm run test-cloudflare # Test Cloudflare setup and deployment readiness
 npm run test-firebase   # Test Firebase configuration (if using Firebase)
+
+# Firebase Data Management (if using Firebase)
+npm run fetch-firebase  # Generic Firebase data fetcher
+npm run import-firestore # Import JSON data to Firestore
 ```
 
 ## 📁 Project Structure

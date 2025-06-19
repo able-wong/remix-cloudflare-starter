@@ -50,6 +50,12 @@ Deployed on Cloudflare Pages with optional Firebase backend (auth, database, sto
 - Simple data display with clear, stable requirements
 - Database is already configured and requirements are very specific
 
+### Troubleshooting Quick Reference
+
+- **Firebase data issues** → `npm run fetch-firebase collection-name` (see Common Pitfalls section)
+- **Deployment issues** → `npm run test-cloudflare` (mandatory pre-deployment check)
+- **Build/type errors** → `npm test && npm run typecheck && npm run lint`
+
 ### Component Priority
 
 1. **DaisyUI first** → External React components → Custom components
@@ -67,6 +73,7 @@ npm run deploy      # Deploy to Cloudflare Pages
 npm run build        # Build for production
 npm run format      # Format code
 npm run import-firestore data/filename.json collection-name --clear # Import Firestore data
+npm run fetch-firebase collection-name # Inspect Firestore data (Admin SDK, bypasses security rules)
 npm run test-firebase # Run Firebase integration tests
 
 # Installation (use --legacy-peer-deps due to Wrangler v4/Remix v2 compatibility)
@@ -186,6 +193,7 @@ npm install --legacy-peer-deps
 
 - **Always check deployment readiness first** - When users ask about deployment, immediately run `npm run test-cloudflare`
 - **Never suggest deployment without validation** - If `npm run test-cloudflare` shows warnings or errors, guide users to fix them first
+- **ASK USER FOR APP NAME** - Never choose app names for users. Always ask the user to choose their preferred app name since it becomes their public URL (https://app-name.pages.dev). Provide naming guidelines and suggestions but let the user decide.
 - **Require project name customization** - Ensure users change the project name from `remix-cloudflare-starter` in both `wrangler.jsonc` and `package.json`
 - **Provide specific fix instructions** - For each issue found by the test script, give clear steps to resolve it
 - **Verify fixes before proceeding** - After users make changes, re-run `npm run test-cloudflare` to confirm issues are resolved
@@ -208,7 +216,7 @@ npm install --legacy-peer-deps
 
 **Common Issues to Address:**
 
-- Generic project name (`remix-cloudflare-starter`) - must be customized
+- Generic project name (`remix-cloudflare-starter`) - **ASK USER to choose their preferred app name**
 - Missing Wrangler authentication - guide through `wrangler auth login`
 - Build output issues - verify `npm run build` completes successfully
 - **Environment variables not configured in Cloudflare Pages** - remind users to set up production environment variables
@@ -585,6 +593,12 @@ For proper form layout and alignment, DaisyUI requires specific class combinatio
 
 ## Common Implementation Pitfalls & Solutions
 
+### TypeScript ESLint: Unused Error Variables
+
+- **Issue**: `@typescript-eslint/no-unused-vars` error when catching exceptions but not using the error variable
+- **Solution**: Use `} catch {` instead of `} catch (error) {` when error is not needed
+- **When error needed**: Only include error parameter if actually using it for logging or re-throwing
+
 ### Theme Toggle Hydration
 
 - **Issue**: SSR/client theme state mismatch causes hydration warnings
@@ -600,3 +614,8 @@ For proper form layout and alignment, DaisyUI requires specific class combinatio
 - **Solution**: `event.preventDefault()` → `await getIdToken()` → set hidden field → `form.submit()`
 - **Critical**: Never rely on synchronous token access in form handlers
 - **Pattern**: Always use async token retrieval with manual form submission
+
+### Firebase Data Issues
+
+- **Issue**: Firestore queries return unexpected results or access denied errors
+- **Solution**: Use `npm run fetch-firebase collection-name` to inspect actual Firestore data
