@@ -24,11 +24,29 @@
  *
  * USAGE PATTERNS:
  *
- * 1. AUTHENTICATED ACCESS:
+ * 1. SDK-LIKE USAGE (RECOMMENDED - returns plain JavaScript objects):
  * ```typescript
  * import { createFirebaseRestApi } from '~/services/firebase-restapi';
  * import { getServerEnv } from '~/utils/env';
  *
+ * export async function action({ request, context }: ActionFunctionArgs) {
+ *   const serverEnv = getServerEnv(context);
+ *   const firebaseApi = await createFirebaseRestApi(serverEnv);
+ *
+ *   // Works exactly like Firebase SDK - plain JavaScript objects
+ *   const book = { title: "Book Title", year: 2023, tags: ["fiction"] };
+ *   const created = await firebaseApi.createDocument('books', book);
+ *
+ *   // All methods return plain JS objects - no conversion needed!
+ *   const books = await firebaseApi.getCollection('books');
+ *   const singleBook = await firebaseApi.getDocument('books/book123');
+ *
+ *   return json({ success: true, books, created, singleBook });
+ * }
+ * ```
+ *
+ * 2. AUTHENTICATED ACCESS:
+ * ```typescript
  * export async function action({ request, context }: ActionFunctionArgs) {
  *   const serverEnv = getServerEnv(context);
  *   const idToken = request.headers.get('Authorization')?.split('Bearer ')[1];
@@ -47,34 +65,30 @@
  * }
  * ```
  *
- * 2. PUBLIC ACCESS (No Authentication):
  * ```typescript
  * export async function loader({ context }: LoaderFunctionArgs) {
  *   const serverEnv = getServerEnv(context);
- *
- *   // No idToken needed for public access
  *   const firebaseApi = await createFirebaseRestApi(serverEnv);
  *
- *   // Access public collections (controlled by Firebase Security Rules)
- *   const publicBooks = await firebaseApi.getCollection('public-books');
+ *   // Access raw Firestore documents (for advanced use cases)
+ *   const response = await firebaseApi.getCollectionRaw('books');
+ *   const rawDocuments = response.documents; // Firestore format with typed fields
  *
- *   // All CRUD operations support public access when Firestore rules allow
- *   const newBook = await firebaseApi.createDocument('books', bookData);
- *   const updatedBook = await firebaseApi.updateDocument('books/book123', updateData);
- *   await firebaseApi.deleteDocument('books/book456');
+ *   // Or get single raw document
+ *   const rawDoc = await firebaseApi.getDocumentRaw('books/book123');
  *
- *   return json({ books: publicBooks });
+ *   return json({ rawDocuments, rawDoc });
  * }
  * ```
  *
- * 3. SERVICE LAYER INTEGRATION:
+ * 4. SERVICE LAYER INTEGRATION:
  * ```typescript
  * class BookService {
  *   constructor(private firebaseApi: FirebaseRestApi) {}
  *
  *   async getAllBooks() {
- *     const response = await this.firebaseApi.getCollection('books');
- *     return response.documents?.map(doc => this.mapToBook(doc)) || [];
+ *     // Now returns plain JS objects directly
+ *     return await this.firebaseApi.getCollection('books');
  *   }
  * }
  * ```
@@ -107,6 +121,7 @@ interface FirebaseConfig {
 }
 
 export interface FirestoreValue {
+  nullValue?: null;
   stringValue?: string;
   booleanValue?: boolean;
   integerValue?: string;
@@ -114,6 +129,9 @@ export interface FirestoreValue {
   timestampValue?: string;
   arrayValue?: {
     values: FirestoreValue[];
+  };
+  mapValue?: {
+    fields: Record<string, FirestoreValue>;
   };
 }
 
@@ -127,6 +145,174 @@ export interface FirestoreDocument {
 export interface FirestoreCollectionResponse {
   documents?: FirestoreDocument[];
   nextPageToken?: string;
+}
+
+/**
+ * FIRESTORE DATA CONVERSION UTILITIES
+ *
+ * These functions convert standard JavaScript data types to Firestore's REST API format.
+ *
+ * WHY THESE ARE NEEDED:
+ * Firestore's REST API requires all field values to be wrapped in type-specific objects.
+ * For example, instead of sending { "name": "Book Title" }, you must send:
+ * { "fields": { "name": { "stringValue": "Book Title" } } }
+ *
+ * This is different from:
+ * - Firebase Admin SDK (handles conversion automatically)
+ * - Client-side Firebase SDK (handles conversion automatically)
+ * - Firestore REST API (requires explicit type wrapping - what we're using here)
+ *
+ * USAGE SCENARIOS:
+ * 1. Creating new documents: convertToFirestoreDocument(bookData)
+ * 2. Updating existing documents: convertToFirestoreDocument(updateData)
+ * 3. Complex nested objects: convertToFirestoreValue(complexObject)
+ *
+ * SUPPORTED TYPES:
+ * - Primitives: string, number, boolean, null
+ * - Complex: Date objects, Arrays, nested Objects
+ * - Arrays: Automatically converts all array elements
+ * - Objects: Recursively converts all nested properties
+ *
+ * EXAMPLES:
+ *
+ * Input:  { name: "Book", tags: ["fiction", "drama"], publishYear: 2023 }
+ * Output: {
+ *   fields: {
+ *     name: { stringValue: "Book" },
+ *     tags: { arrayValue: { values: [{ stringValue: "fiction" }, { stringValue: "drama" }] } },
+ *     publishYear: { integerValue: "2023" }
+ *   }
+ * }
+ */
+
+/**
+ * Converts a JavaScript value to Firestore REST API field format
+ *
+ * This is the core conversion function that handles individual values.
+ * It recursively processes complex types like arrays and objects.
+ *
+ * @param value - Any JavaScript value to convert
+ * @returns FirestoreValue - The value wrapped in Firestore's type format
+ *
+ * @example
+ * convertToFirestoreValue("hello") → { stringValue: "hello" }
+ * convertToFirestoreValue(42) → { integerValue: "42" }
+ * convertToFirestoreValue(true) → { booleanValue: true }
+ * convertToFirestoreValue(["a", "b"]) → { arrayValue: { values: [...] } }
+ */
+function convertToFirestoreValue(value: unknown): FirestoreValue {
+  if (value === null || value === undefined) {
+    return { nullValue: null };
+  }
+
+  if (typeof value === 'string') {
+    return { stringValue: value };
+  }
+
+  if (typeof value === 'number') {
+    return Number.isInteger(value)
+      ? { integerValue: value.toString() }
+      : { doubleValue: value };
+  }
+
+  if (typeof value === 'boolean') {
+    return { booleanValue: value };
+  }
+
+  if (Array.isArray(value)) {
+    return {
+      arrayValue: {
+        values: value.map((item) => convertToFirestoreValue(item)),
+      },
+    };
+  }
+
+  if (value instanceof Date) {
+    return { timestampValue: value.toISOString() };
+  }
+
+  if (typeof value === 'object') {
+    const fields: Record<string, FirestoreValue> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      fields[key] = convertToFirestoreValue(val);
+    }
+    return { mapValue: { fields } };
+  }
+
+  // Fallback to string representation
+  if (typeof value === 'object') {
+    try {
+      return { stringValue: JSON.stringify(value) };
+    } catch {
+      return { stringValue: '[object Object]' };
+    }
+  }
+  // Handle primitives that can be safely converted to string
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return { stringValue: String(value) };
+  }
+
+  // For anything else, use a safe fallback
+  return { stringValue: 'unsupported_type' };
+}
+
+/**
+ * Converts a JavaScript object to Firestore document format for REST API
+ *
+ * This is the main function you'll use when creating or updating documents.
+ * It wraps the entire object in Firestore's document structure with a "fields" property.
+ *
+ * WHY THIS IS NEEDED:
+ * Firestore REST API expects documents in this exact format:
+ * { "fields": { "fieldName": { "fieldType": value } } }
+ *
+ * This function handles the conversion automatically so you can work with
+ * normal JavaScript objects in your application code.
+ *
+ * @param data - Plain JavaScript object with your document data
+ * @returns Partial<FirestoreDocument> - Firestore-formatted document ready for API
+ *
+ * @example
+ * // Input: Regular JavaScript object
+ * const bookData = {
+ *   title: "The Great Gatsby",
+ *   author: "F. Scott Fitzgerald",
+ *   publishedYear: 1925,
+ *   tags: ["classic", "american literature"],
+ *   isAvailable: true,
+ *   createdAt: new Date()
+ * };
+ *
+ * // Output: Firestore document format
+ * const firestoreDoc = convertToFirestoreDocument(bookData);
+ * // Result: {
+ * //   fields: {
+ * //     title: { stringValue: "The Great Gatsby" },
+ * //     author: { stringValue: "F. Scott Fitzgerald" },
+ * //     publishedYear: { integerValue: "1925" },
+ * //     tags: { arrayValue: { values: [{ stringValue: "classic" }, ...] } },
+ * //     isAvailable: { booleanValue: true },
+ * //     createdAt: { timestampValue: "2023-01-01T00:00:00.000Z" }
+ * //   }
+ * // }
+ *
+ * // Then use with Firebase REST API:
+ * await firebaseApi.createDocument('books', firestoreDoc);
+ */
+export function convertToFirestoreDocument(
+  data: Record<string, unknown>,
+): Partial<FirestoreDocument> {
+  const fields: Record<string, FirestoreValue> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    fields[key] = convertToFirestoreValue(value);
+  }
+
+  return { fields };
 }
 
 export class FirebaseRestApi {
@@ -247,18 +433,22 @@ export class FirebaseRestApi {
   /**
    * GET ALL DOCUMENTS FROM COLLECTION
    *
-   * Retrieves all documents from a specified Firestore collection.
-   * This is the most commonly used method for reading data.
+   * Retrieves all documents from a specified Firestore collection as plain JavaScript objects.
+   * This matches Firebase SDK behavior - no need for manual data conversion.
    * Supports both public and authenticated access based on Firebase Security Rules.
    *
    * @param collectionName - Name of the Firestore collection (e.g., 'books', 'users', 'orders')
-   * @returns Promise<FirestoreCollectionResponse> - Object containing documents array and optional pagination token
+   * @returns Promise<Array<Record<string, unknown>>> - Array of documents as plain JavaScript objects
    *
    * @throws Error - If collection access fails or Firebase Security Rules deny access
+   *
+   * @example
+   * const books = await firebaseApi.getCollection('books');
+   * // Returns: [{ title: "Book 1", year: 2023 }, { title: "Book 2", year: 2024 }]
    */
   async getCollection(
     collectionName: string,
-  ): Promise<FirestoreCollectionResponse> {
+  ): Promise<Array<Record<string, unknown>>> {
     const headers = this.prepareHeaders(false); // Public access allowed
 
     const response = await this.boundFetch(
@@ -279,22 +469,31 @@ export class FirebaseRestApi {
       throw new Error(`Failed to get collection: ${JSON.stringify(error)}`);
     }
 
-    return response.json();
+    const result: FirestoreCollectionResponse = await response.json();
+    return (
+      result.documents?.map((doc: FirestoreDocument) =>
+        this.convertFromFirestoreDocument(doc),
+      ) || []
+    );
   }
 
   /**
    * GET SINGLE DOCUMENT
    *
-   * Retrieves a specific document from Firestore using its document path.
-   * Ideal for fetching individual records by ID.
+   * Retrieves a specific document from Firestore as a plain JavaScript object.
+   * This matches Firebase SDK behavior - no need for manual data conversion.
    * Supports both public and authenticated access based on Firebase Security Rules.
    *
    * @param documentPath - Full path to the document (e.g., 'books/book123', 'users/user456')
-   * @returns Promise<FirestoreDocument> - The requested document with all its fields
+   * @returns Promise<Record<string, unknown>> - The document as a plain JavaScript object
    *
    * @throws Error - If document doesn't exist, access is denied, or path is invalid
+   *
+   * @example
+   * const book = await firebaseApi.getDocument('books/book123');
+   * // Returns: { title: "Book Title", year: 2023, tags: ["fiction"] }
    */
-  async getDocument(documentPath: string): Promise<FirestoreDocument> {
+  async getDocument(documentPath: string): Promise<Record<string, unknown>> {
     const headers = this.prepareHeaders(false); // Public access allowed
 
     const response = await this.boundFetch(
@@ -315,33 +514,45 @@ export class FirebaseRestApi {
       throw new Error(`Failed to get document: ${JSON.stringify(error)}`);
     }
 
-    return response.json();
+    const doc: FirestoreDocument = await response.json();
+    return this.convertFromFirestoreDocument(doc);
   }
 
   /**
-   * CREATE NEW DOCUMENT
+   * CREATE NEW DOCUMENT (with automatic data conversion)
    *
    * Creates a new document in the specified Firestore collection.
-   * Requires authentication - ID token must be provided during construction.
+   * Automatically converts JavaScript objects to Firestore format, matching Firebase SDK behavior.
+   * Returns the created document as a plain JavaScript object for easy consumption.
+   * Supports both public and authenticated access based on Firebase Security Rules.
    *
    * @param collectionName - Name of the collection to create document in
-   * @param data - Document data in Firestore format (with field types)
-   * @returns Promise<FirestoreDocument> - The created document with generated ID and timestamps
+   * @param data - Plain JavaScript object with document data (automatically converted)
+   * @returns Promise<Record<string, unknown>> - The created document as plain JavaScript object
    *
    * @throws Error - If authentication fails, validation fails, or creation is denied
+   *
+   * @example
+   * // Simple usage like Firebase SDK:
+   * const book = { title: "Book Title", year: 2023, tags: ["fiction"] };
+   * const created = await firebaseApi.createDocument('books', book);
+   * // Returns: { title: "Book Title", year: 2023, tags: ["fiction"], id: "auto-generated-id" }
    */
   async createDocument(
     collectionName: string,
-    data: Partial<FirestoreDocument>,
-  ): Promise<FirestoreDocument> {
+    data: Record<string, unknown> | Partial<FirestoreDocument>,
+  ): Promise<Record<string, unknown>> {
     const headers = this.prepareHeaders(false); // Public access allowed (when Firestore rules permit)
+
+    // Auto-convert plain JavaScript objects to Firestore format
+    const firestoreData = this.ensureFirestoreFormat(data);
 
     const response = await this.boundFetch(
       this.buildFirestoreUrl(collectionName, true),
       {
         method: 'POST',
         headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify(firestoreData),
       },
     );
 
@@ -355,34 +566,46 @@ export class FirebaseRestApi {
       throw new Error(`Failed to create document: ${JSON.stringify(error)}`);
     }
 
-    return response.json();
+    const doc: FirestoreDocument = await response.json();
+    return this.convertFromFirestoreDocument(doc);
   }
 
   /**
-   * UPDATE EXISTING DOCUMENT
+   * UPDATE EXISTING DOCUMENT (with automatic data conversion)
    *
    * Updates specific fields in an existing Firestore document.
    * Only updates the fields provided - other fields remain unchanged.
+   * Automatically converts JavaScript objects to Firestore format, matching Firebase SDK behavior.
+   * Returns the updated document as a plain JavaScript object for easy consumption.
    * Supports both public and authenticated access based on Firebase Security Rules.
    *
    * @param documentPath - Full path to the document (e.g., 'books/book123')
-   * @param data - Partial document data with only fields to update
-   * @returns Promise<FirestoreDocument> - The updated document with new updateTime
+   * @param data - Plain JavaScript object with fields to update (automatically converted)
+   * @returns Promise<Record<string, unknown>> - The updated document as plain JavaScript object
    *
    * @throws Error - If document doesn't exist, access is denied, or update is denied
+   *
+   * @example
+   * // Simple usage like Firebase SDK:
+   * const updates = { title: "New Title", year: 2024 };
+   * const updated = await firebaseApi.updateDocument('books/book123', updates);
+   * // Returns: { title: "New Title", year: 2024, author: "Existing Author", ... }
    */
   async updateDocument(
     documentPath: string,
-    data: Partial<FirestoreDocument>,
-  ): Promise<FirestoreDocument> {
+    data: Record<string, unknown> | Partial<FirestoreDocument>,
+  ): Promise<Record<string, unknown>> {
     const headers = this.prepareHeaders(false); // Public access allowed (when Firestore rules permit)
+
+    // Auto-convert plain JavaScript objects to Firestore format
+    const firestoreData = this.ensureFirestoreFormat(data);
 
     const response = await this.boundFetch(
       this.buildFirestoreUrl(documentPath, false),
       {
         method: 'PATCH',
         headers,
-        body: JSON.stringify(data),
+        body: JSON.stringify(firestoreData),
       },
     );
 
@@ -396,7 +619,8 @@ export class FirebaseRestApi {
       throw new Error(`Failed to update document: ${JSON.stringify(error)}`);
     }
 
-    return response.json();
+    const doc: FirestoreDocument = await response.json();
+    return this.convertFromFirestoreDocument(doc);
   }
 
   /**
@@ -428,6 +652,23 @@ export class FirebaseRestApi {
       });
       throw new Error(`Failed to delete document: ${JSON.stringify(error)}`);
     }
+  }
+
+  /**
+   * Ensures data is in Firestore format, converting if necessary
+   * @param data - Either plain JavaScript object or pre-converted Firestore document
+   * @returns Partial<FirestoreDocument> - Data in Firestore format
+   */
+  private ensureFirestoreFormat(
+    data: Record<string, unknown> | Partial<FirestoreDocument>,
+  ): Partial<FirestoreDocument> {
+    // Check if data is already in Firestore format (has 'fields' property)
+    if ('fields' in data && data.fields) {
+      return data as Partial<FirestoreDocument>;
+    }
+
+    // Convert plain JavaScript object to Firestore format
+    return convertToFirestoreDocument(data as Record<string, unknown>);
   }
 
   /**
@@ -598,6 +839,232 @@ export class FirebaseRestApi {
 
     return headers;
   }
+
+  /**
+   * Converts Firestore document back to plain JavaScript object
+   * @param doc - Firestore document with typed fields
+   * @returns Record<string, unknown> - Plain JavaScript object with 'id' field
+   */
+  private convertFromFirestoreDocument(
+    doc: FirestoreDocument,
+  ): Record<string, unknown> {
+    const result: Record<string, unknown> = {};
+
+    // Extract document ID from the name field (e.g., "projects/project/databases/(default)/documents/books/book123" -> "book123")
+    if (doc.name) {
+      const pathParts = doc.name.split('/');
+      result.id = pathParts[pathParts.length - 1];
+    }
+
+    if (!doc.fields) {
+      return result;
+    }
+
+    for (const [key, value] of Object.entries(doc.fields)) {
+      result[key] = this.convertFromFirestoreValue(value);
+    }
+
+    return result;
+  }
+
+  /**
+   * Converts Firestore value back to plain JavaScript value
+   * @param value - Firestore typed value
+   * @returns unknown - Plain JavaScript value
+   */
+  private convertFromFirestoreValue(value: FirestoreValue): unknown {
+    if (value.nullValue !== undefined) {
+      return null;
+    }
+
+    if (value.stringValue !== undefined) {
+      return value.stringValue;
+    }
+
+    if (value.booleanValue !== undefined) {
+      return value.booleanValue;
+    }
+
+    if (value.integerValue !== undefined) {
+      return parseInt(value.integerValue, 10);
+    }
+
+    if (value.doubleValue !== undefined) {
+      return value.doubleValue;
+    }
+
+    if (value.timestampValue !== undefined) {
+      return new Date(value.timestampValue);
+    }
+
+    if (value.arrayValue?.values) {
+      return value.arrayValue.values.map((item) =>
+        this.convertFromFirestoreValue(item),
+      );
+    }
+
+    if (value.mapValue?.fields) {
+      const result: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(value.mapValue.fields)) {
+        result[key] = this.convertFromFirestoreValue(val);
+      }
+      return result;
+    }
+
+    return null; // Fallback for unknown types
+  }
+
+  /**
+   * RAW FIRESTORE FORMAT METHODS (for advanced use cases)
+   *
+   * These methods return data in the original Firestore REST API format with typed fields.
+   * Use these when you need access to metadata, field types, or timestamps from Firestore.
+   * Most applications should use the main methods (getCollection, getDocument, etc.) instead.
+   */
+
+  /**
+   * GET COLLECTION (Raw Firestore Format)
+   *
+   * Returns collection in raw Firestore REST API format with metadata and typed fields.
+   *
+   * @param collectionName - Name of the Firestore collection
+   * @returns Promise<FirestoreCollectionResponse> - Raw Firestore response with typed fields
+   */
+  async getCollectionRaw(
+    collectionName: string,
+  ): Promise<FirestoreCollectionResponse> {
+    const headers = this.prepareHeaders(false);
+
+    const response = await this.boundFetch(
+      this.buildFirestoreUrl(collectionName, true),
+      {
+        method: 'GET',
+        headers,
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      this.logger.error('Failed to get collection (raw)', {
+        error: JSON.stringify(error),
+        collectionName,
+        action: 'get_collection_raw',
+      });
+      throw new Error(`Failed to get collection: ${JSON.stringify(error)}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * GET DOCUMENT (Raw Firestore Format)
+   *
+   * Returns document in raw Firestore REST API format with metadata and typed fields.
+   *
+   * @param documentPath - Full path to the document
+   * @returns Promise<FirestoreDocument> - Raw Firestore document with typed fields
+   */
+  async getDocumentRaw(documentPath: string): Promise<FirestoreDocument> {
+    const headers = this.prepareHeaders(false);
+
+    const response = await this.boundFetch(
+      this.buildFirestoreUrl(documentPath, false),
+      {
+        method: 'GET',
+        headers,
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      this.logger.error('Failed to get document (raw)', {
+        error: JSON.stringify(error),
+        documentPath,
+        action: 'get_document_raw',
+      });
+      throw new Error(`Failed to get document: ${JSON.stringify(error)}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * CREATE DOCUMENT (Raw Firestore Format)
+   *
+   * Creates document and returns in raw Firestore REST API format with metadata.
+   *
+   * @param collectionName - Name of the collection
+   * @param data - Document data (plain JS or Firestore format)
+   * @returns Promise<FirestoreDocument> - Raw Firestore document with metadata
+   */
+  async createDocumentRaw(
+    collectionName: string,
+    data: Record<string, unknown> | Partial<FirestoreDocument>,
+  ): Promise<FirestoreDocument> {
+    const headers = this.prepareHeaders(false);
+    const firestoreData = this.ensureFirestoreFormat(data);
+
+    const response = await this.boundFetch(
+      this.buildFirestoreUrl(collectionName, true),
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(firestoreData),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      this.logger.error('Failed to create document (raw)', {
+        error: JSON.stringify(error),
+        collectionName,
+        action: 'create_document_raw',
+      });
+      throw new Error(`Failed to create document: ${JSON.stringify(error)}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * UPDATE DOCUMENT (Raw Firestore Format)
+   *
+   * Updates document and returns in raw Firestore REST API format with metadata.
+   *
+   * @param documentPath - Full path to the document
+   * @param data - Update data (plain JS or Firestore format)
+   * @returns Promise<FirestoreDocument> - Raw Firestore document with metadata
+   */
+  async updateDocumentRaw(
+    documentPath: string,
+    data: Record<string, unknown> | Partial<FirestoreDocument>,
+  ): Promise<FirestoreDocument> {
+    const headers = this.prepareHeaders(false);
+    const firestoreData = this.ensureFirestoreFormat(data);
+
+    const response = await this.boundFetch(
+      this.buildFirestoreUrl(documentPath, false),
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(firestoreData),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      this.logger.error('Failed to update document (raw)', {
+        error: JSON.stringify(error),
+        documentPath,
+        action: 'update_document_raw',
+      });
+      throw new Error(`Failed to update document: ${JSON.stringify(error)}`);
+    }
+
+    return response.json();
+  }
+
+  // ...existing code...
 }
 
 /**
