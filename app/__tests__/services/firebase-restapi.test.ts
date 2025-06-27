@@ -1255,3 +1255,667 @@ describe('Automatic Data Conversion Integration', () => {
     });
   });
 });
+
+describe('Query Parameters and Search Options', () => {
+  const mockConfig = {
+    apiKey: 'test-api-key',
+    projectId: 'test-project-id',
+  };
+
+  const mockLogger: Logger = {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  };
+
+  const mockFetch = jest.fn() as jest.MockedFunction<typeof fetch>;
+  let api: FirebaseRestApi;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    api = new FirebaseRestApi(mockConfig, undefined, mockFetch, mockLogger);
+  });
+
+  describe('getCollection with search options', () => {
+    describe('simple queries (GET request)', () => {
+      it('should use GET request when no search options provided', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => ({ documents: [] }),
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          `https://firestore.googleapis.com/v1/projects/${mockConfig.projectId}/databases/(default)/documents/books`,
+          expect.objectContaining({
+            method: 'GET',
+            headers: expect.objectContaining({
+              'Content-Type': 'application/json',
+            }),
+          }),
+        );
+      });
+
+      it('should use GET request when options object is empty', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => ({ documents: [] }),
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {});
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          `https://firestore.googleapis.com/v1/projects/${mockConfig.projectId}/databases/(default)/documents/books`,
+          expect.objectContaining({
+            method: 'GET',
+          }),
+        );
+      });
+
+      it('should use GET request when options is undefined', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => ({ documents: [] }),
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', undefined);
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          `https://firestore.googleapis.com/v1/projects/${mockConfig.projectId}/databases/(default)/documents/books`,
+          expect.objectContaining({
+            method: 'GET',
+          }),
+        );
+      });
+    });
+
+    describe('advanced queries (POST to /runQuery)', () => {
+      it('should use POST to /runQuery when where clause is provided', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          where: [{ field: 'category', operator: '==', value: 'fiction' }],
+        });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+          `https://firestore.googleapis.com/v1/projects/${mockConfig.projectId}/databases/(default)/documents:runQuery`,
+          expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('"structuredQuery"'),
+          }),
+        );
+      });
+
+      it('should build correct structured query for single where clause', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          where: [{ field: 'category', operator: '==', value: 'fiction' }],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body).toEqual({
+          structuredQuery: {
+            from: [{ collectionId: 'books' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'category' },
+                op: 'EQUAL',
+                value: { stringValue: 'fiction' },
+              },
+            },
+          },
+        });
+      });
+
+      it('should build correct structured query for multiple where clauses with AND', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          where: [
+            { field: 'category', operator: '==', value: 'fiction' },
+            { field: 'year', operator: '>=', value: 2020 },
+          ],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.where).toEqual({
+          compositeFilter: {
+            op: 'AND',
+            filters: [
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'category' },
+                  op: 'EQUAL',
+                  value: { stringValue: 'fiction' },
+                },
+              },
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'year' },
+                  op: 'GREATER_THAN_OR_EQUAL',
+                  value: { integerValue: '2020' },
+                },
+              },
+            ],
+          },
+        });
+      });
+
+      it('should handle different data types in where clauses', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          where: [
+            { field: 'title', operator: '==', value: 'Test Book' }, // string
+            { field: 'year', operator: '==', value: 2023 }, // number
+            { field: 'isAvailable', operator: '==', value: true }, // boolean
+            { field: 'tags', operator: 'array-contains', value: 'fiction' }, // array
+          ],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+        const filters = body.structuredQuery.where.compositeFilter.filters;
+
+        expect(filters[0].fieldFilter.value).toEqual({
+          stringValue: 'Test Book',
+        });
+        expect(filters[1].fieldFilter.value).toEqual({ integerValue: '2023' });
+        expect(filters[2].fieldFilter.value).toEqual({ booleanValue: true });
+        expect(filters[3].fieldFilter.value).toEqual({
+          stringValue: 'fiction',
+        });
+      });
+
+      it('should handle array-contains-any operator', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          where: [
+            {
+              field: 'tags',
+              operator: 'array-contains-any',
+              value: ['fiction', 'drama'],
+            },
+          ],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.where.fieldFilter).toEqual({
+          field: { fieldPath: 'tags' },
+          op: 'ARRAY_CONTAINS_ANY',
+          value: {
+            arrayValue: {
+              values: [{ stringValue: 'fiction' }, { stringValue: 'drama' }],
+            },
+          },
+        });
+      });
+
+      it('should handle in operator', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          where: [
+            {
+              field: 'category',
+              operator: 'in',
+              value: ['fiction', 'mystery'],
+            },
+          ],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.where.fieldFilter).toEqual({
+          field: { fieldPath: 'category' },
+          op: 'IN',
+          value: {
+            arrayValue: {
+              values: [{ stringValue: 'fiction' }, { stringValue: 'mystery' }],
+            },
+          },
+        });
+      });
+
+      it('should handle composite filter with OR', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          compositeFilter: {
+            op: 'OR',
+            filters: [
+              { field: 'category', operator: '==', value: 'fiction' },
+              { field: 'category', operator: '==', value: 'mystery' },
+            ],
+          },
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.where).toEqual({
+          compositeFilter: {
+            op: 'OR',
+            filters: [
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'category' },
+                  op: 'EQUAL',
+                  value: { stringValue: 'fiction' },
+                },
+              },
+              {
+                fieldFilter: {
+                  field: { fieldPath: 'category' },
+                  op: 'EQUAL',
+                  value: { stringValue: 'mystery' },
+                },
+              },
+            ],
+          },
+        });
+      });
+
+      it('should handle unary filter IS_NULL', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          unaryFilter: {
+            field: 'description',
+            op: 'IS_NULL',
+          },
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.where).toEqual({
+          unaryFilter: {
+            field: { fieldPath: 'description' },
+            op: 'IS_NULL',
+          },
+        });
+      });
+
+      it('should handle unary filter IS_NOT_NULL', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          unaryFilter: {
+            field: 'description',
+            op: 'IS_NOT_NULL',
+          },
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.where).toEqual({
+          unaryFilter: {
+            field: { fieldPath: 'description' },
+            op: 'IS_NOT_NULL',
+          },
+        });
+      });
+
+      it('should handle ordering with ascending direction', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          orderBy: [{ field: 'title', direction: 'asc' }],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.orderBy).toEqual([
+          {
+            field: { fieldPath: 'title' },
+            direction: 'ASCENDING',
+          },
+        ]);
+      });
+
+      it('should handle ordering with descending direction', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          orderBy: [{ field: 'year', direction: 'desc' }],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.orderBy).toEqual([
+          {
+            field: { fieldPath: 'year' },
+            direction: 'DESCENDING',
+          },
+        ]);
+      });
+
+      it('should handle multiple orderBy clauses', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          orderBy: [
+            { field: 'category', direction: 'asc' },
+            { field: 'title', direction: 'asc' },
+          ],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.orderBy).toEqual([
+          {
+            field: { fieldPath: 'category' },
+            direction: 'ASCENDING',
+          },
+          {
+            field: { fieldPath: 'title' },
+            direction: 'ASCENDING',
+          },
+        ]);
+      });
+
+      it('should handle limit', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          limit: 10,
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.limit).toBe(10);
+      });
+
+      it('should handle offset', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          offset: 20,
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.offset).toBe(20);
+      });
+
+      it('should handle field selection', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          select: ['title', 'author', 'year'],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.select).toEqual({
+          fields: [
+            { fieldPath: 'title' },
+            { fieldPath: 'author' },
+            { fieldPath: 'year' },
+          ],
+        });
+      });
+
+      it('should handle collection group queries', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          collectionGroup: true,
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery.from).toEqual([
+          { collectionId: 'books', allDescendants: true },
+        ]);
+      });
+
+      it('should handle complex query with multiple options', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [{ document: { name: 'test', fields: {} } }],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await api.getCollection('books', {
+          where: [{ field: 'available', operator: '==', value: true }],
+          orderBy: [{ field: 'rating', direction: 'desc' }],
+          limit: 5,
+          select: ['title', 'rating'],
+        });
+
+        const callArgs = mockFetch.mock.calls[0];
+        const body = JSON.parse(callArgs[1]?.body as string);
+
+        expect(body.structuredQuery).toEqual({
+          from: [{ collectionId: 'books' }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: 'available' },
+              op: 'EQUAL',
+              value: { booleanValue: true },
+            },
+          },
+          orderBy: [
+            {
+              field: { fieldPath: 'rating' },
+              direction: 'DESCENDING',
+            },
+          ],
+          limit: 5,
+          select: {
+            fields: [{ fieldPath: 'title' }, { fieldPath: 'rating' }],
+          },
+        });
+      });
+
+      it('should convert response documents correctly', async () => {
+        const mockDocuments = [
+          {
+            document: {
+              name: 'projects/test-project/databases/(default)/documents/books/book1',
+              fields: {
+                title: { stringValue: 'Test Book' },
+                year: { integerValue: '2023' },
+                available: { booleanValue: true },
+              },
+            },
+          },
+          {
+            document: {
+              name: 'projects/test-project/databases/(default)/documents/books/book2',
+              fields: {
+                title: { stringValue: 'Another Book' },
+                year: { integerValue: '2022' },
+                available: { booleanValue: false },
+              },
+            },
+          },
+        ];
+
+        const mockResponse = {
+          ok: true,
+          json: async () => mockDocuments,
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const result = await api.getCollection('books', {
+          where: [{ field: 'available', operator: '==', value: true }],
+        });
+
+        expect(result).toEqual([
+          {
+            id: 'book1',
+            title: 'Test Book',
+            year: 2023,
+            available: true,
+          },
+          {
+            id: 'book2',
+            title: 'Another Book',
+            year: 2022,
+            available: false,
+          },
+        ]);
+      });
+
+      it('should filter out null documents from response', async () => {
+        const mockResponse = {
+          ok: true,
+          json: async () => [
+            {
+              document: {
+                name: 'test',
+                fields: { title: { stringValue: 'Book 1' } },
+              },
+            },
+            { document: null }, // This should be filtered out
+            {
+              document: {
+                name: 'test2',
+                fields: { title: { stringValue: 'Book 2' } },
+              },
+            },
+          ],
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        const result = await api.getCollection('books', {
+          where: [{ field: 'title', operator: '==', value: 'test' }],
+        });
+
+        expect(result).toHaveLength(2);
+        expect(result[0].title).toBe('Book 1');
+        expect(result[1].title).toBe('Book 2');
+      });
+    });
+
+    describe('error handling', () => {
+      it('should handle Firestore API errors gracefully', async () => {
+        const mockResponse = {
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: {
+              code: 400,
+              message: 'Invalid query',
+              status: 'INVALID_ARGUMENT',
+            },
+          }),
+        } as Response;
+        mockFetch.mockResolvedValueOnce(mockResponse);
+
+        await expect(
+          api.getCollection('books', {
+            where: [{ field: 'invalid-field', operator: '==', value: 'test' }],
+          }),
+        ).rejects.toThrow('Failed to get collection');
+
+        expect(mockLogger.error).toHaveBeenCalledWith(
+          'Failed to get collection with query',
+          expect.objectContaining({
+            collectionName: 'books',
+            action: 'get_collection_query',
+          }),
+        );
+      });
+
+      it('should handle network errors', async () => {
+        mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+        await expect(
+          api.getCollection('books', {
+            where: [{ field: 'title', operator: '==', value: 'test' }],
+          }),
+        ).rejects.toThrow('Network error');
+      });
+    });
+  });
+});

@@ -1,0 +1,74 @@
+[
+  {
+    "title": "The Lord of the Rings",
+    "author": "J.R.R. Tolkien",
+    "year": 1954,
+    "price": 29.99,
+    "tags": ["fantasy", "adventure", "classic"],
+    "available": true,
+    "rating": 4.8,
+    "genre": "fantasy",
+    "pages": 1216,
+    "isbn": "978-0-618-64015-7"
+  },
+  {
+    "title": "The Hobbit",
+    "author": "J.R.R. Tolkien",
+    "year": 1937,
+    "price": 19.99,
+    "tags": ["fantasy", "adventure"],
+    "available": true,
+    "rating": 4.6,
+    "genre": "fantasy",
+    "pages": 366,
+    "isbn": "978-0-618-00221-4"
+  },
+  {
+    "title": "Pride and Prejudice",
+    "author": "Jane Austen",
+    "year": 1813,
+    "price": 15.99,
+    "tags": ["classic", "romance"],
+    "available": false,
+    "rating": 4.5,
+    "genre": "romance",
+    "pages": 432,
+    "isbn": "978-0-141-43951-8"
+  },
+  {
+    "title": "To Kill a Mockingbird",
+    "author": "Harper Lee",
+    "year": 1960,
+    "price": 12.99,
+    "tags": ["classic", "fiction"],
+    "available": true,
+    "rating": 4.7,
+    "genre": "fiction",
+    "pages": 376,
+    "isbn": "978-0-446-31078-9"
+  },
+  {
+    "title": "1984",
+    "author": "George Orwell",
+    "year": 1949,
+    "price": 14.99,
+    "tags": ["dystopian", "fiction", "classic"],
+    "available": true,
+    "rating": 4.4,
+    "genre": "dystopian",
+    "pages": 328,
+    "isbn": "978-0-452-28423-4"
+  },
+  {
+    "title": "The Great Gatsby",
+    "author": "F. Scott Fitzgerald",
+    "year": 1925,
+    "price": 11.99,
+    "tags": ["classic", "fiction"],
+    "available": false,
+    "rating": 4.3,
+    "genre": "fiction",
+    "pages": 180,
+    "isbn": "978-0-743-25676-5"
+  }
+]

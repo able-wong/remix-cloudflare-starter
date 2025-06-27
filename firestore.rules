@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Test collection for integration tests - public read access
+    match /test-books-integration/{document=**} {
+      allow read: if true;
+      allow write: if false; // No writes allowed for test collection
+    }
+  }
+}

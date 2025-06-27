@@ -14,8 +14,10 @@
     "preview": "npm test && npm run build && wrangler pages dev",
     "cf-typegen": "wrangler types",
     "format": "prettier --write \"app/**/*.{ts,tsx}\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
+    "test": "jest --testPathIgnorePatterns=/app/integration-tests/",
+    "test:watch": "jest --watch --testPathIgnorePatterns=/app/integration-tests/",
+    "test:integration": "jest app/integration-tests --testTimeout=30000",
+    "test:all": "npm test && npm run test:integration",
     "import-firestore": "node scripts/import-firestore-data.js",
     "fetch-firebase": "node scripts/firebase-data-fetcher.js",
     "test-firebase": "node scripts/test-firebase-config.js",
@@ -77,7 +79,11 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "testMatch": [
-      "**/__tests__/**/*.test.ts"
+      "**/__tests__/**/*.test.ts",
+      "**/integration-tests/**/*.test.ts"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/"
     ],
     "moduleNameMapper": {
       "^~/(.*)$": "<rootDir>/app/$1"

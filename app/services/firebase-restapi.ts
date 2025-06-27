@@ -148,6 +148,106 @@ export interface FirestoreCollectionResponse {
 }
 
 /**
+ * FIRESTORE SEARCH OPTIONS INTERFACE
+ *
+ * Comprehensive interface covering all Firestore REST API search capabilities.
+ * This interface defines all possible query options for searching and filtering
+ * documents in Firestore collections.
+ *
+ * @example
+ * const options: FirestoreSearchOptions = {
+ *   where: [
+ *     { field: 'category', operator: '==', value: 'fiction' },
+ *     { field: 'year', operator: '>=', value: 2020 }
+ *   ],
+ *   orderBy: [{ field: 'title', direction: 'asc' }],
+ *   limit: 10,
+ *   select: ['title', 'author', 'year']
+ * };
+ */
+export interface FirestoreSearchOptions {
+  /**
+   * WHERE CLAUSES - Field-based filtering conditions
+   */
+  where?: Array<{
+    field: string;
+    operator:
+      | '==' // Equal to
+      | '!=' // Not equal to
+      | '<' // Less than
+      | '<=' // Less than or equal to
+      | '>' // Greater than
+      | '>=' // Greater than or equal to
+      | 'array-contains' // Array contains the value
+      | 'array-contains-any' // Array contains any of the values
+      | 'in' // Field value is in the array
+      | 'not-in'; // Field value is not in the array
+    value: unknown;
+  }>;
+
+  /**
+   * COMPOSITE FILTERS - Complex AND/OR combinations of filters
+   */
+  compositeFilter?: {
+    op: 'AND' | 'OR';
+    filters: Array<{
+      field: string;
+      operator: string;
+      value: unknown;
+    }>;
+  };
+
+  /**
+   * UNARY FILTERS - Null/not-null checks
+   */
+  unaryFilter?: {
+    field: string;
+    op: 'IS_NULL' | 'IS_NOT_NULL';
+  };
+
+  /**
+   * ORDERING - Sort results by field values
+   */
+  orderBy?: Array<{
+    field: string;
+    direction: 'asc' | 'desc';
+  }>;
+
+  /**
+   * LIMIT - Maximum number of documents to return
+   */
+  limit?: number;
+
+  /**
+   * OFFSET - Number of documents to skip (for pagination)
+   */
+  offset?: number;
+
+  /**
+   * PAGINATION - Cursor-based pagination for better performance
+   */
+  startAt?: unknown[];
+  startAfter?: unknown[];
+  endAt?: unknown[];
+  endBefore?: unknown[];
+
+  /**
+   * FIELD SELECTION - Only return specific fields (performance optimization)
+   */
+  select?: string[];
+
+  /**
+   * COLLECTION GROUP QUERIES - Query across all collections with the same name
+   */
+  collectionGroup?: boolean;
+
+  /**
+   * CONSISTENCY - Read consistency level
+   */
+  consistency?: 'strong' | 'eventual';
+}
+
+/**
  * FIRESTORE DATA CONVERSION UTILITIES
  *
  * These functions convert standard JavaScript data types to Firestore's REST API format.
@@ -433,48 +533,280 @@ export class FirebaseRestApi {
   /**
    * GET ALL DOCUMENTS FROM COLLECTION
    *
-   * Retrieves all documents from a specified Firestore collection as plain JavaScript objects.
-   * This matches Firebase SDK behavior - no need for manual data conversion.
-   * Supports both public and authenticated access based on Firebase Security Rules.
+   * Retrieves documents from a specified Firestore collection with comprehensive search options.
+   * Supports all Firestore REST API query capabilities including filtering, ordering, pagination,
+   * field selection, and collection group queries.
    *
    * @param collectionName - Name of the Firestore collection (e.g., 'books', 'users', 'orders')
+   * @param options - Comprehensive search options covering all Firestore capabilities
    * @returns Promise<Array<Record<string, unknown>>> - Array of documents as plain JavaScript objects
    *
    * @throws Error - If collection access fails or Firebase Security Rules deny access
    *
    * @example
+   * // Basic collection retrieval
    * const books = await firebaseApi.getCollection('books');
-   * // Returns: [{ title: "Book 1", year: 2023 }, { title: "Book 2", year: 2024 }]
+   *
+   * // Filtered search
+   * const books = await firebaseApi.getCollection('books', {
+   *   where: [
+   *     { field: 'year', operator: '>=', value: 2020 },
+   *     { field: 'category', operator: '==', value: 'fiction' }
+   *   ],
+   *   orderBy: [{ field: 'title', direction: 'asc' }],
+   *   limit: 10
+   * });
+   *
+   * // Word search using searchWords array
+   * const books = await firebaseApi.getCollection('books', {
+   *   where: [
+   *     { field: 'searchWords', operator: 'array-contains-any', value: ['harry', 'potter'] }
+   *   ]
+   * });
+   *
+   * // Complex composite filter
+   * const books = await firebaseApi.getCollection('books', {
+   *   compositeFilter: {
+   *     op: 'OR',
+   *     filters: [
+   *       { field: 'category', operator: '==', value: 'fiction' },
+   *       { field: 'category', operator: '==', value: 'mystery' }
+   *     ]
+   *   }
+   * });
+   *
+   * // Field selection for performance
+   * const books = await firebaseApi.getCollection('books', {
+   *   select: ['title', 'author', 'year'],
+   *   limit: 20
+   * });
    */
   async getCollection(
     collectionName: string,
+    options?: FirestoreSearchOptions,
   ): Promise<Array<Record<string, unknown>>> {
     const headers = this.prepareHeaders(false); // Public access allowed
 
-    const response = await this.boundFetch(
-      this.buildFirestoreUrl(collectionName, true),
-      {
+    // If no search options, use simple GET request
+    if (!options || this.isSimpleQuery(options)) {
+      const url = this.buildFirestoreUrl(collectionName, true);
+      const response = await this.boundFetch(url, {
         method: 'GET',
         headers,
-      },
-    );
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        this.logger.error('Failed to get collection', {
+          error: JSON.stringify(error),
+          collectionName,
+          options,
+          action: 'get_collection',
+        });
+        throw new Error(`Failed to get collection: ${JSON.stringify(error)}`);
+      }
+
+      const result: FirestoreCollectionResponse = await response.json();
+      return (
+        result.documents?.map((doc: FirestoreDocument) =>
+          this.convertFromFirestoreDocument(doc),
+        ) || []
+      );
+    }
+
+    // For advanced queries, use the /runQuery endpoint
+    const queryUrl = this.buildRunQueryUrl();
+    const queryBody = this.buildRunQueryBody(collectionName, options);
+
+    const response = await this.boundFetch(queryUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(queryBody),
+    });
 
     if (!response.ok) {
       const error = await response.json();
-      this.logger.error('Failed to get collection', {
+      this.logger.error('Failed to get collection with query', {
         error: JSON.stringify(error),
         collectionName,
-        action: 'get_collection',
+        options,
+        action: 'get_collection_query',
       });
       throw new Error(`Failed to get collection: ${JSON.stringify(error)}`);
     }
 
-    const result: FirestoreCollectionResponse = await response.json();
-    return (
-      result.documents?.map((doc: FirestoreDocument) =>
-        this.convertFromFirestoreDocument(doc),
-      ) || []
+    const result: Array<{
+      document?: FirestoreDocument;
+    }> = await response.json();
+    return result
+      .map((item) => {
+        if (item.document) {
+          return this.convertFromFirestoreDocument(item.document);
+        }
+        return null;
+      })
+      .filter((item): item is Record<string, unknown> => item !== null);
+  }
+
+  /**
+   * Check if the query options are simple enough to use GET request
+   */
+  private isSimpleQuery(options: FirestoreSearchOptions): boolean {
+    return !(
+      options.where ||
+      options.compositeFilter ||
+      options.unaryFilter ||
+      options.orderBy ||
+      options.select ||
+      options.limit ||
+      options.offset ||
+      options.startAt ||
+      options.startAfter ||
+      options.endAt ||
+      options.endBefore ||
+      options.collectionGroup ||
+      options.consistency
     );
+  }
+
+  /**
+   * Build the URL for the /runQuery endpoint
+   */
+  private buildRunQueryUrl(): string {
+    return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(
+      this.config.projectId,
+    )}/databases/(default)/documents:runQuery`;
+  }
+
+  /**
+   * Build the request body for the /runQuery endpoint
+   */
+  private buildRunQueryBody(
+    collectionName: string,
+    options: FirestoreSearchOptions,
+  ): { structuredQuery: Record<string, unknown> } {
+    const structuredQuery: Record<string, unknown> = {
+      from: [{ collectionId: collectionName }],
+    };
+
+    // Handle where clauses
+    if (options.where && options.where.length > 0) {
+      if (options.where.length === 1) {
+        structuredQuery.where = this.buildFieldFilter(options.where[0]);
+      } else {
+        structuredQuery.where = {
+          compositeFilter: {
+            op: 'AND',
+            filters: options.where.map((clause) =>
+              this.buildFieldFilter(clause),
+            ),
+          },
+        };
+      }
+    }
+
+    // Handle composite filters
+    if (options.compositeFilter) {
+      structuredQuery.where = {
+        compositeFilter: {
+          op: options.compositeFilter.op,
+          filters: options.compositeFilter.filters.map((clause) =>
+            this.buildFieldFilter(clause),
+          ),
+        },
+      };
+    }
+
+    // Handle unary filters
+    if (options.unaryFilter) {
+      structuredQuery.where = {
+        unaryFilter: {
+          field: { fieldPath: options.unaryFilter.field },
+          op: options.unaryFilter.op,
+        },
+      };
+    }
+
+    // Handle ordering
+    if (options.orderBy && options.orderBy.length > 0) {
+      structuredQuery.orderBy = options.orderBy.map((order) => ({
+        field: { fieldPath: order.field },
+        direction: this.mapDirection(order.direction),
+      }));
+    }
+
+    // Handle limit
+    if (options.limit) {
+      structuredQuery.limit = options.limit;
+    }
+
+    // Handle offset
+    if (options.offset) {
+      structuredQuery.offset = options.offset;
+    }
+
+    // Handle field selection
+    if (options.select && options.select.length > 0) {
+      structuredQuery.select = {
+        fields: options.select.map((field) => ({ fieldPath: field })),
+      };
+    }
+
+    // Handle collection group queries
+    if (options.collectionGroup) {
+      structuredQuery.from = [
+        { collectionId: collectionName, allDescendants: true },
+      ];
+    }
+
+    return { structuredQuery };
+  }
+
+  /**
+   * Build a field filter for the structured query
+   */
+  private buildFieldFilter(clause: {
+    field: string;
+    operator: string;
+    value: unknown;
+  }): Record<string, unknown> {
+    return {
+      fieldFilter: {
+        field: { fieldPath: clause.field },
+        op: this.mapOperator(clause.operator),
+        value: convertToFirestoreValue(clause.value),
+      },
+    };
+  }
+
+  /**
+   * Map operator strings to Firestore REST API enum values
+   */
+  private mapOperator(operator: string): string {
+    const operatorMap: Record<string, string> = {
+      '==': 'EQUAL',
+      '!=': 'NOT_EQUAL',
+      '<': 'LESS_THAN',
+      '<=': 'LESS_THAN_OR_EQUAL',
+      '>': 'GREATER_THAN',
+      '>=': 'GREATER_THAN_OR_EQUAL',
+      'array-contains': 'ARRAY_CONTAINS',
+      'array-contains-any': 'ARRAY_CONTAINS_ANY',
+      in: 'IN',
+      'not-in': 'NOT_IN',
+    };
+    return operatorMap[operator] || operator;
+  }
+
+  /**
+   * Map direction strings to Firestore REST API enum values
+   */
+  private mapDirection(direction: string): string {
+    const directionMap: Record<string, string> = {
+      asc: 'ASCENDING',
+      desc: 'DESCENDING',
+    };
+    return directionMap[direction.toLowerCase()] || direction;
   }
 
   /**

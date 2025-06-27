@@ -72,6 +72,7 @@ Open [http://localhost:5173](http://localhost:5173) to see your app running!
    > 💡 **Name Examples**: `bookfinder-hub`, `literaly-search`, `my-portfolio`, `company-website`. Pick something that represents your project!
 
 2. **Create Cloudflare Pages Project:**
+
    - Go to [Cloudflare Pages](https://dash.cloudflare.com/pages)
    - Create new project with the same name you used above
    - Or let Wrangler create it automatically on first deployment
@@ -122,6 +123,60 @@ npm run test-firebase   # Test Firebase configuration (if using Firebase)
 npm run fetch-firebase  # Generic Firebase data fetcher
 npm run import-firestore # Import JSON data to Firestore
 ```
+
+---
+
+## 🔬 Running Integration Tests
+
+To run the Firestore integration tests, follow these steps **after cloning the project**:
+
+1. **Set up Firebase**
+
+   - Follow the detailed instructions in [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) to:
+     - Create a Firebase project
+     - Enable Firestore
+     - Set up authentication (optional)
+     - Generate and configure environment variables
+
+2. **Initialize Firebase in your project**
+
+   - Run `firebase init` if you haven't already.
+   - **Important:** When prompted, **do not overwrite** your existing `firestore.rules` and `firestore.indexes.json` files. Choose "No" to keep the existing files.
+
+3. **Deploy Firestore Rules and Indexes**
+
+   - Deploy your security rules and indexes to Firestore:
+     ```sh
+     firebase deploy --only firestore:rules
+     firebase deploy --only firestore:indexes
+     ```
+
+4. **Import Test Data**
+
+   - Import the test data into Firestore using the provided script:
+     ```sh
+     node scripts/import-firestore-data.js data/books.json test-books-integration --clear
+     ```
+
+5. **Configure Environment Variables**
+
+   - Copy the example environment file and fill in your Firebase credentials:
+     ```sh
+     cp .dev.vars.example .dev.vars
+     ```
+   - Edit `.dev.vars` and set the values for:
+     - `FIREBASE_CONFIG`
+     - `FIREBASE_PROJECT_ID`
+     - `FIREBASE_SERVICE_ACCOUNT_KEY`
+   - See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for details on obtaining these values.
+
+6. **Run Integration Tests**
+   - Your environment is now ready! Run the integration tests:
+     ```sh
+     npx jest app/integration-tests/services/firebase-restapi.integration.test.ts
+     ```
+
+---
 
 ## 📁 Project Structure
 
