@@ -4,11 +4,6 @@ applyTo: '**/*.ts,**/*.tsx'
 
 # AI Behavior Guide
 
-## Project Overview
-
-Modern web application boilerplate: Remix + TypeScript + React 18 + TailwindCSS v4 + DaisyUI v5.
-Deployed on Cloudflare Pages with optional Firebase backend (auth, database, storage).
-
 ## Tech Stack
 
 - **Framework**: Remix on Cloudflare Pages
@@ -19,59 +14,25 @@ Deployed on Cloudflare Pages with optional Firebase backend (auth, database, sto
 
 ## Core Development Protocol
 
-**MANDATORY FIRST STEP: Always clarify requirements before any implementation**
-
-When a user requests a feature:
+**MANDATORY: Always clarify requirements before implementation**
 
 1. **Stop and Ask Questions** - Never start coding immediately
-2. **Present options with trade-offs** - Help users understand their choices
+2. **Present options with trade-offs** - Help users understand choices
 3. **Confirm understanding** - Summarize requirements back to user
 4. **Get explicit approval** - Wait for "yes, proceed" before starting
 
-**Required Clarification Questions:**
-
-- **Data Sources**: External APIs vs local database (Firestore) vs hybrid approach?
-- **Authentication**: Public access, Firebase Auth, role-based access control needed?
-- **UI/UX**: Specific component styles, layouts, or design patterns?
-- **Data Structure**: What fields are required? Any relationships or validation rules?
-- **Performance Expectations**: Search speed requirements, expected data volume, real-time updates needed?
-- **User Flow**: Who will use this feature and how? Complete workflow?
-
-**Examples of Required Clarification:**
-
-- "Build a blog" → What content management approach? Admin interface needed? User comments? SEO requirements?
-- "Add authentication" → What login methods? User roles? Registration flow? Password reset?
-- "Create a dashboard" → What data to display? Real-time updates? User-specific or global data?
-
-**Implementation Planning Defaults:**
-
-- **Always propose Mock-to-Database approach** unless user requests otherwise
-- **Break complex features into single-function pieces** (e.g., search, then filters, then admin)
-- **Plan Phase 1 mock implementation first** before discussing database integration
-- **Define clear success criteria** for each phase before starting implementation
+**Key Questions**: Data sources? Authentication needs? UI/UX requirements? Data structure? User workflow?
 
 ## Quick Reference
 
 ### Firebase Service Selection & Patterns
-
-**Context-Based Selection (Only consideration needed):**
-
-- **Remix loaders/actions** → `firebase-restapi.ts` (server-side)
-- **React components** → `firebase.ts` (client-side)
-- **Authentication** → Always `firebase.ts` (client-side only)
-
-**Examples:**
-
-- Admin book CRUD in loaders → `firebase-restapi.ts`
-- Real-time search in components → `firebase.ts`
-- User login/logout → `firebase.ts`
 
 **Key Patterns:**
 
 - **Authentication**: Always client-side with Firebase SDK, never server-side auth
   - Use `signInWithEmailAndPassword()` for login - never custom auth flows
   - Firebase manages auth state automatically after successful login
-- **Token Passing**: When using `firebase-restapi.ts`, idToken MUST be passed from frontend to loaders/actions
+- **Token Passing to Remix loaders/actions**: When using `firebase-restapi.ts`, idToken MUST be passed from frontend to loaders/actions
   - Get idToken client-side: `await user.getIdToken()`
   - Pass via form data or headers to server-side operations
   - Never assume server-side has automatic access to auth state
@@ -87,30 +48,18 @@ When a user requests a feature:
 - **Data features** → Mock first → Database integration (mandatory approach)
 - **Required validation** → `npm test && npm run typecheck && npm run lint`
 
-**Mock-to-Database Protocol:**
+**3-Phase Protocol:**
 
-1. **Phase 1**: UI + realistic mock data + TypeScript interfaces + validation
-2. **Phase 2**: Firebase setup (if not already configured)
-3. **Phase 3**: Replace mock with database, keep same interfaces
-4. **Always validate each phase** before proceeding to next
+1. **Phase 1**: UI + mock data + TypeScript interfaces
+2. **Phase 2**: Firebase setup (if needed)
+3. **Phase 3**: Replace mock with database operations
 
-**Post-Implementation Validation (All Features):**
-
-- Run validation: `npm test && npm run typecheck && npm run lint`
-- **Explain to user what was implemented** and ask them to validate requirements are met correctly
+- **Detailed steps**: See Development Strategy section below
 - For data features after Phase 3: **Propose deployment to Cloudflare** and follow Deployment Protocol
-
-### When to Skip Mock Phase
-
-- User explicitly requests direct database implementation
-- Simple data display with clear, stable requirements
-- Database is already configured and requirements are very specific
 
 ### Deployment Protocol
 
 **MANDATORY: Always run `npm run test-cloudflare` before any deployment**
-
-**AI Behavior for Deployment Requests:**
 
 1. User mentions deployment → Run `npm run test-cloudflare`
 2. If issues found → Guide user to fix each issue with specific instructions
@@ -176,7 +125,7 @@ Firebase provides authentication, database, and storage. Only needed when using 
 
 ### Feature-First Development
 
-- **Implement one functional feature at a time** - Focus on completing user features before admin features, or vice versa based on priority
+- **Implement one functional feature at a time** - Focus on completing user features
 - **Functional feature separation** - Treat user features and admin features as distinct development phases
 - **Complete feature workflows** - Ensure each functional feature works end-to-end before moving to the next
 - **Phase independence** - Each feature should be fully functional and testable before starting the next feature
@@ -199,7 +148,7 @@ Firebase provides authentication, database, and storage. Only needed when using 
 - Build UI for one functional feature with realistic mock data
 - Create Remix loaders/actions returning static JSON
 - Define TypeScript interfaces based on mock data
-- Follow Post-Implementation Validation (see Quick Reference)
+- Run validation: follow Post-Implementation Validation
 
 **Phase 2 Details:**
 
@@ -219,7 +168,12 @@ Firebase provides authentication, database, and storage. Only needed when using 
 - Import test data: `npm run import-firestore data/filename.json collection-name`
 - Verify data exists: `npm run fetch-firebase collection-name`
 - Keep original mock loader commented out for fallback
-- Follow Post-Implementation Validation (see Quick Reference)
+- Run validation: follow Post-Implementation Validation
+
+**Post-Implementation Validation**
+
+- **Explain to user what was implemented** and ask them to validate requirements are met correctly
+- For data features after Phase 3: **Propose deployment to Cloudflare** and follow Deployment Protocol
 
 #### Implementation Enforcement
 
@@ -236,45 +190,14 @@ Firebase provides authentication, database, and storage. Only needed when using 
 
 ### External Service Recommendations
 
-When features require capabilities beyond the current tech stack, recommend these external services:
+**Email**: Brevo (transactional/marketing), Mailchimp | **Storage**: Firebase Storage, Cloudflare R2 | **Media**: Cloudinary
+**Communication**: Twilio (SMS), Firebase Cloud Messaging (push notifications)
 
-#### Email Services
-
-- **Transactional Email**: Recommend **Brevo** (generous free tier, reliable API)
-- **Newsletter/Marketing**: Recommend **Brevo** or **Mailchimp**
-
-#### File Storage & Media
-
-- **File Uploads**: Use **Firebase Storage** (if Firebase already configured) or **Cloudflare R2**
-- **Image Processing**: Recommend **Cloudinary** (free tier available)
-
-#### Communication
-
-- **SMS/Text Messages**: Recommend **Twilio** (reliable API, pay-per-use)
-- **Push Notifications**: Recommend **Firebase Cloud Messaging** (if Firebase configured)
-
-#### External Service Implementation Pattern
-
-- **Use dependency injection pattern** - Accept a `fetch` function in service constructor for testability (following existing `FirebaseRestApi` pattern)
-- **Create service classes** with clear interfaces and proper error handling
-- **Implement mock-first approach** - Mock API responses during Phase 1 UI development
-- **Add comprehensive testing** - Test both success and error scenarios with mocked fetch
-
-**Service Selection Guidelines:**
-
-- **Prioritize free tiers** for proof-of-concept implementations
-- **Choose services with good API documentation** and TypeScript support
-- **Prefer services that integrate well** with Cloudflare/Firebase ecosystem
+**Implementation**: Use dependency injection, create service classes, mock-first approach, prioritize free tiers
 
 ## Environment Variables & Configuration
 
 ### Environment Context Handling
-
-- Use `app/utils/env.ts` for environment variable access
-- **Client Environment** (`getClientEnv`): Safe variables exposed to browser (loaders)
-- **Server Environment** (`getServerEnv`): All variables for server-side operations (actions)
-
-### Environment Variables & Configuration
 
 - Use `app/utils/env.ts` for environment variable access
 - **Client Environment** (`getClientEnv`): Safe variables exposed to browser (loaders)
@@ -289,7 +212,6 @@ When features require capabilities beyond the current tech stack, recommend thes
 - Implement proper component composition
 - Follow React 18 best practices
 - Create reusable components when possible
-- Keep components small and focused on a single responsibility
 
 ### Component Selection Priority
 
@@ -304,15 +226,6 @@ When features require capabilities beyond the current tech stack, recommend thes
 - Leverage Remix's built-in data loading/mutations where possible
 - Avoid introducing external state management unless necessary
 
-### Common Hook Patterns
-
-- `useState`: Component state management
-- `useEffect`: Side effects (API calls, subscriptions, DOM mutations)
-- `useContext`: Access shared context values
-- `useCallback`: Memoize functions for performance optimization
-- `useMemo`: Memoize computed values
-- `useRef`: DOM element references or persistent values
-
 ### Custom Hooks
 
 - Extract reusable stateful logic into custom hooks
@@ -321,49 +234,47 @@ When features require capabilities beyond the current tech stack, recommend thes
 
 ### Route Structure and Templates
 
-- **`app/routes/_index.tsx` is a demo/template file** - This file contains a comprehensive showcase of DaisyUI components, theme switching, and styling patterns. It should be replaced or heavily modified when starting a new project.
-- The demo page includes examples of:
-  - Theme switching functionality
-  - DaisyUI component usage (cards, alerts, buttons, navbar)
-  - TailwindCSS utility patterns
-  - Responsive design implementation
+- **`app/routes/_index.tsx` is a demo/template file** - This file contains a comprehensive showcase of DaisyUI components, theme switching, and styling patterns.
 - Use this file as a reference for component patterns and styling approaches, then replace with your actual application content
 
 ## Code Organization & Architecture
 
 ### Project Structure
 
-- `app/routes/` - Remix routes (pages & API)
-- `app/services/` - Business logic (optional Firebase integration)
-- `app/components/` - Reusable UI components
-- `app/utils/` - Utility functions
-- `app/__tests__/` - Test files
+- `app/routes/` (pages & API)
+- `app/services/` (business logic)
+- `app/components/` (UI)
+- `app/utils/` (utilities)
+- `app/__tests__/` (tests)
 
-### Business Logic Organization
+### Business Logic
 
-- Follow Remix conventions for routes, loaders and actions
 - Place all business logic in the `app/services/` folder
+- Follow Remix conventions for routes, loaders and actions
 - Create service classes with clear interfaces and single responsibilities
-- **Use dependency injection patterns** for better testability and modularity
+- Use dependency injection patterns
 - **Use lazy initialization** for default instances to avoid module-level instantiation
 - **Prefer per-request service instances** in Remix loaders/actions when possible
+- Data access should be through service classes, not direct database calls
 - **REQUIRED: Document service context** - All Firebase services must include header comments specifying usage context
 
 ## Data Patterns Reference
 
-### Phase 1: Mock Data Creation
+### Service Abstraction Pattern
 
-- **Location**: Return static data in Remix loaders or create files in `data/mock/` directory
-- **Data Quality**: Include realistic volume, variety (empty/long/special characters), relationships, and error scenarios
-- **Structure**: Define TypeScript interfaces based on mock data first, use predictable IDs that won't conflict with database auto-generation
-- **Storage**: For large datasets, use separate mock files; for simple data, return directly in loaders
+- **Create service classes** for all data operations - never return static data directly in loaders
+- **Mock services** implement same interface as database services for easy switching
+- **Location**: `app/services/` with clear constructor dependencies and TypeScript interfaces
 
-### Phase 2: Database Seeding
+### Mock Data (Phase 1)
 
-- **File Structure**: Create JSON files in `data/` directory matching Firestore collection hierarchy
-- **Import Process**: Use custom import script: `npm run import-firestore data/filename.json collection-name --clear`
-- **Data Verification**: Check Firestore console and test with actual database queries, not just mock fallback
-- **Quality Standards**: Ensure realistic production scenarios, edge cases, sufficient volume for pagination/search testing
+- **Quality**: Realistic volume, variety (empty/long/special), relationships, error scenarios | **IDs**: Predictable format to avoid database conflicts
+- **Storage**: Separate files in `data/mock/` or service class constants
+
+### Database Setup (Phase 2)
+
+- **Seeding**: JSON files in `data/` → `npm run import-firestore data/filename.json collection-name --clear`
+- **Verification**: Firestore console + actual queries (not mock fallback)
 
 ## Testing Strategy
 
@@ -374,56 +285,17 @@ When features require capabilities beyond the current tech stack, recommend thes
 - **Business Logic**: All code in `app/services/` must be covered by tests
 - **Pure Utilities**: Environment handling (`env.ts`), logging (`logger.ts`), data processing, validation functions in `app/utils/`
 
-#### Optional Test Coverage
-
-- **React Utilities**: Hooks, React-specific helpers, component utilities, theme helpers in `app/utils/`
-- **Simple Type Definitions**: Interfaces and type-only files
-
-#### Testing Classification Guidelines
-
-- **Test Required**: Functions that process data, make external calls, handle business logic, or have complex conditional logic
-- **Test Optional**: React hooks, component helpers, simple getters/setters, theme utilities, or UI-only utilities that are difficult to test in isolation
-
-#### General Testing Requirements
-
-- Use Jest as the primary testing framework
-- Place tests in `app/__tests__/` directory, mirroring the service structure
-- Aim for high test coverage on business logic
+**Optional**: React utilities, hooks, theme helpers, simple type definitions
 
 ### Testing Best Practices
 
 - **Mock ALL constructor dependencies** - use dependency injection, never global mocks
-- **Mock external dependencies** - APIs, databases, fetch functions, etc.
+- **Mock external dependencies** - APIs, databases, fetch functions
 - **Test both success and error paths** - verify logger calls on errors
 - **Reference existing tests** - copy patterns from `firebase-restapi.test.ts`
 - **Structured logging format**: `expect(mockLogger.error).toHaveBeenCalledWith('Message', { error: 'details' })`
 - Use Jest as the primary testing framework
 - Place tests in `app/__tests__/` directory, mirroring the service structure
-
-**Required Test Structure for Dependency Injection:**
-
-```typescript
-// Always start with
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-
-// Mock all dependencies
-const mockLogger = {
-  error: jest.fn(),
-  warn: jest.fn(),
-  info: jest.fn(),
-  debug: jest.fn(),
-};
-const mockApi = { method: jest.fn() } as unknown as jest.Mocked<ApiType>;
-
-// Standard structure
-describe('ServiceName', () => {
-  let service: ServiceName;
-  beforeEach(() => {
-    jest.clearAllMocks();
-    service = new ServiceName(mockApi, mockLogger);
-  });
-});
-```
 
 ## Styling & UI Components
 
@@ -446,7 +318,6 @@ For proper form layout and alignment, DaisyUI requires specific class combinatio
 
 - Optimize for edge deployment on Cloudflare
 - Implement proper code splitting
-- Minimize client-side JavaScript
 - Follow Remix data loading patterns
 
 ## Common Implementation Pitfalls & Solutions
@@ -455,23 +326,18 @@ For proper form layout and alignment, DaisyUI requires specific class combinatio
 
 - **Issue**: `@typescript-eslint/no-unused-vars` error when catching exceptions but not using the error variable
 - **Solution**: Use `} catch {` instead of `} catch (error) {` when error is not needed
-- **When error needed**: Only include error parameter if actually using it for logging or re-throwing
 
 ### Theme Toggle Hydration
 
 - **Issue**: SSR/client theme state mismatch causes hydration warnings
-- **Root Cause**: Server renders with default theme, client may have different theme stored
 - **Solution**: Use `useState(null)` initially, set theme in `useEffect` after client hydration
-- **Pattern**: Always defer theme-dependent rendering until client-side
-- **Code Example**: Check `theme === null` and show loading state until hydration complete
+- **Pattern**: Check `theme === null` and show loading state until hydration complete
 
 ### Firebase Auth in Forms
 
 - **Issue**: ID tokens are async but forms submit synchronously, causing 401 Unauthorized errors
-- **Root Cause**: Form submission happens before ID token retrieval completes
 - **Solution**: `event.preventDefault()` → `await getIdToken()` → set hidden field → `form.submit()`
 - **Critical**: Never rely on synchronous token access in form handlers
-- **Pattern**: Always use async token retrieval with manual form submission
 
 ### Firebase Data Issues
 
