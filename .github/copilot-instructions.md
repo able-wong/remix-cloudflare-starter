@@ -27,7 +27,7 @@ applyTo: '**/*.ts,**/*.tsx'
 
 ### Firebase Service Selection & Patterns
 
-**Key Patterns:**
+**Key Patterns (Mandatory):**
 
 - **Authentication**: Always client-side with Firebase SDK, never server-side auth
   - Use `signInWithEmailAndPassword()` for login - never custom auth flows
@@ -36,6 +36,9 @@ applyTo: '**/*.ts,**/*.tsx'
   - Get idToken client-side: `await user.getIdToken()`
   - Pass via form data or headers to server-side operations
   - Never assume server-side has automatic access to auth state
+- **Auth Implementation**: Only use `onAuthStateChanged`, never `getCurrentUser()` - always check loading state before redirects to prevent loops
+- **Auth Debugging**: Verify `console.log(useLoaderData().ENV.FIREBASE_CONFIG)` exists, check `onAuthStateChanged` fires, use `useNavigate()` never `window.location`
+- **Auth Setup Verification**: Always run `npm run test-firebase` to verify Auth is enabled - guide user to enable in Firebase Console if test fails
 - **Environment Setup**: Run `npm run test-firebase` first to determine what needs fixing
   - NEVER overwrite existing `.dev.vars` - always check its content first
   - Guide user to fix specific missing/invalid variables based on test results
@@ -158,7 +161,8 @@ Firebase provides authentication, database, and storage. Only needed when using 
   - Choose existing project or create new one
   - Accept default `firestore.rules` and `firestore.indexes.json` files
 - Fix any missing environment variables identified by test
-- Deploy security rules: `firebase deploy --only firestore:rules`
+- Update `firestore.rules` and `firestore.indexes.json` according to project requirements
+- Deploy security rules and indexes: `firebase deploy --only firestore:rules,firestore:indexes`
 - Re-run `npm run test-firebase` until it passes
 
 **Phase 3 Details:**

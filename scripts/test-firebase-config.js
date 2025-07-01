@@ -263,6 +263,157 @@ class FirebaseConfigTester {
   }
 
   /**
+   * Test Firebase Auth setup using CLI (alternative to Admin SDK)
+   */
+  async testFirebaseAuthSetupViaCLI() {
+    console.log('\n🔍 Testing Firebase Auth Setup (via CLI)...');
+
+    try {
+      // Use Firebase CLI to check auth configuration
+      const authConfigResult = await this._safeExecSync('firebase auth:export auth-export-temp.json --format=json', { timeout: 15000 });
+
+      if (authConfigResult.success) {
+        this.addSuccess('Firebase Auth is enabled and accessible via CLI');
+
+        // Try to read the export to get user count
+        try {
+          if (existsSync('auth-export-temp.json')) {
+            const authData = JSON.parse(readFileSync('auth-export-temp.json', 'utf-8'));
+
+            if (authData.users && authData.users.length > 0) {
+              this.addSuccess(`Firebase Auth has ${authData.users.length} registered user(s)`);
+            } else {
+              this.addWarning('Firebase Auth is enabled but has no registered users');
+            }
+
+            // Clean up temp file
+            try {
+              const fs = await import('fs');
+              fs.unlinkSync('auth-export-temp.json');
+            } catch {
+              // Ignore cleanup errors
+            }
+          }
+        } catch (parseError) {
+          this.addWarning('Could not parse auth export data, but Auth appears to be working');
+        }
+
+      } else {
+        // Parse CLI error for better guidance
+        if (this._containsAny(authConfigResult.error, ['not found', 'does not exist'])) {
+          this.addError('Firebase Auth is not enabled for this project');
+          this.addError('Enable Authentication in Firebase Console: https://console.firebase.google.com');
+        } else if (this._containsAny(authConfigResult.error, ['permission', 'access denied'])) {
+          this.addError('Permission denied accessing Firebase Auth via CLI');
+          this.addError('Ensure you are authenticated with sufficient permissions: firebase login');
+        } else if (this._containsAny(authConfigResult.error, ['not authenticated'])) {
+          this.addError('Firebase CLI is not authenticated - run "firebase login"');
+        } else {
+          this.addError(`Firebase Auth CLI test failed: ${authConfigResult.error}`);
+          this.addWarning('This might indicate Auth is not enabled or CLI lacks permissions');
+        }
+      }
+
+    } catch (error) {
+      this.addError(`Failed to test Firebase Auth setup via CLI: ${error.message}`);
+    }
+  }
+
+  /**
+   * Test Firebase Auth setup
+   */
+  async testFirebaseAuthSetup() {
+    console.log('\n🔍 Testing Firebase Auth Setup...');
+
+    try {
+      const { getAuth } = await import('firebase-admin/auth');
+      const auth = getAuth();
+
+      // Test 1: Try to list users (this will fail if Auth is not enabled)
+      try {
+        const listUsersResult = await auth.listUsers(1); // Just get 1 user to test
+        this.addSuccess('Firebase Auth is enabled and accessible');
+
+        // Test 2: Check if there are any users
+        if (listUsersResult.users.length > 0) {
+          this.addSuccess(`Firebase Auth has ${listUsersResult.users.length} registered user(s)`);
+        } else {
+          this.addWarning('Firebase Auth is enabled but has no registered users');
+        }
+
+        // Test 3: Check auth configuration (providers)
+        try {
+          // This is a more comprehensive check - we'll try to get project config
+          // Note: This requires specific permissions, so we'll catch errors gracefully
+          const authConfig = await auth.projectConfigManager().getProjectConfig();
+
+          if (authConfig.signIn && authConfig.signIn.email) {
+            this.addSuccess('Email/Password authentication is enabled');
+          }
+
+          if (authConfig.signIn && authConfig.signIn.phoneNumber) {
+            this.addSuccess('Phone authentication is enabled');
+          }
+
+          // Check for other providers
+          const providers = [];
+          if (authConfig.signIn) {
+            Object.keys(authConfig.signIn).forEach(key => {
+              if (key !== 'allowDuplicateEmails' && authConfig.signIn[key]) {
+                providers.push(key);
+              }
+            });
+          }
+
+          if (providers.length > 0) {
+            this.addSuccess(`Enabled auth providers: ${providers.join(', ')}`);
+          } else {
+            this.addWarning('No specific auth providers detected in configuration');
+          }
+
+        } catch (configError) {
+          // This is expected if we don't have the right permissions
+          this.addWarning('Could not retrieve detailed auth configuration (insufficient permissions)');
+        }
+
+      } catch (authError) {
+        if (authError.code === 'auth/project-not-found') {
+          this.addError('Firebase Auth is not enabled for this project');
+          this.addError('Enable Authentication in Firebase Console: https://console.firebase.google.com');
+        } else if (authError.code === 'auth/insufficient-permission') {
+          this.addError('Service account lacks permissions to access Firebase Auth');
+          this.addError('Grant "Firebase Authentication Admin" role to your service account');
+        } else if (authError.message && authError.message.includes('serviceusage.serviceUsageConsumer')) {
+          this.addWarning('Service account missing Service Usage Consumer permission');
+          this.addWarning('This is common when using service accounts for Auth access');
+          this.addWarning('Trying alternative CLI-based auth check...');
+
+          // Fall back to CLI-based check
+          await this.testFirebaseAuthSetupViaCLI();
+          return;
+        } else if (authError.message && authError.message.includes('PERMISSION_DENIED')) {
+          this.addWarning('Permission denied accessing Firebase Auth via service account');
+          this.addWarning('This is common and doesn\'t necessarily mean Auth is broken');
+          this.addWarning('Trying alternative CLI-based auth check...');
+
+          // Fall back to CLI-based check
+          await this.testFirebaseAuthSetupViaCLI();
+          return;
+        } else if (authError.message && authError.message.includes('Authentication')) {
+          this.addError('Firebase Auth appears to be disabled or misconfigured');
+          this.addError('Check Authentication settings in Firebase Console');
+        } else {
+          this.addError(`Firebase Auth test failed: ${authError.message}`);
+          this.addWarning('If you recently enabled Firebase Auth, wait 5-10 minutes and try again');
+        }
+      }
+
+    } catch (error) {
+      this.addError(`Failed to test Firebase Auth setup: ${error.message}`);
+    }
+  }
+
+  /**
    * Test Firestore connection
    */
   async testFirestoreConnection() {
@@ -549,7 +700,7 @@ class FirebaseConfigTester {
       const projectsListResult = await this._safeExecSync('firebase projects:list --json', { timeout: 15000 });
 
       if (projectsListResult.success) {
-        this.addSuccess('Firebase CLI can access project list - authentication is working');
+        this.addSuccess('Firebase CLI can access project list - basic CLI authentication is working');
       } else {
         this.addError('Firebase CLI authentication issue - run "firebase login"');
         return false;
@@ -778,6 +929,7 @@ class FirebaseConfigTester {
     // Test Firebase services
     const adminInitialized = await this.testFirebaseAdminInitialization();
     if (adminInitialized) {
+      await this.testFirebaseAuthSetup();
       await this.testFirestoreConnection();
     }
 
