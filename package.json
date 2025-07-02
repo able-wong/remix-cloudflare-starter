@@ -9,7 +9,9 @@
     "dev": "remix vite:dev",
     "lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
     "start": "wrangler pages dev ./build/client",
-    "typecheck": "tsc",
+    "typecheck": "npm run typecheck:app && npm run typecheck:tests",
+    "typecheck:app": "tsc",
+    "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "typegen": "wrangler types",
     "preview": "npm test && npm run build && wrangler pages dev",
     "cf-typegen": "wrangler types",
@@ -92,7 +94,7 @@
       "^.+\\.tsx?$": [
         "ts-jest",
         {
-          "tsconfig": "tsconfig.json"
+          "tsconfig": "tsconfig.test.json"
         }
       ]
     }
