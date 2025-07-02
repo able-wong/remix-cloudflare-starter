@@ -1,7 +1,7 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
-import { initializeAndGetFirebaseClient } from '../../services/firebase';
+import { initializeAndGetFirebaseClient } from '../../../services/firebase';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import type { FirebaseConfig } from '../../interfaces/firebaseInterface';
+import type { FirebaseConfig } from '../../../interfaces/firebaseInterface';
 
 // Mock Firebase modules
 jest.mock('firebase/app', () => ({

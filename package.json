@@ -16,9 +16,9 @@
     "preview": "npm test && npm run build && wrangler pages dev",
     "cf-typegen": "wrangler types",
     "format": "prettier --write \"app/**/*.{ts,tsx}\"",
-    "test": "jest --testPathIgnorePatterns=/app/integration-tests/",
-    "test:watch": "jest --watch --testPathIgnorePatterns=/app/integration-tests/",
-    "test:integration": "jest app/integration-tests --testTimeout=30000",
+    "test": "jest --testPathIgnorePatterns=/app/__tests__/integration-tests/",
+    "test:watch": "jest --watch --testPathIgnorePatterns=/app/__tests__/integration-tests/",
+    "test:integration": "jest app/__tests__/integration-tests --testTimeout=30000",
     "test:all": "npm test && npm run test:integration",
     "import-firestore": "node scripts/import-firestore-data.js",
     "fetch-firebase": "node scripts/firebase-data-fetcher.js",
@@ -81,8 +81,7 @@
     "preset": "ts-jest",
     "testEnvironment": "node",
     "testMatch": [
-      "**/__tests__/**/*.test.ts",
-      "**/integration-tests/**/*.test.ts"
+      "**/__tests__/**/*.test.ts"
     ],
     "testPathIgnorePatterns": [
       "/node_modules/"

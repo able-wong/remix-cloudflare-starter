@@ -146,6 +146,7 @@ To run the Firestore integration tests, follow these steps **after cloning the p
 3. **Deploy Firestore Rules and Indexes**
 
    - Deploy your security rules and indexes to Firestore:
+
      ```sh
      firebase deploy --only firestore:rules
      firebase deploy --only firestore:indexes
@@ -154,16 +155,19 @@ To run the Firestore integration tests, follow these steps **after cloning the p
 4. **Import Test Data**
 
    - Import the test data into Firestore using the provided script:
+
      ```sh
-     node scripts/import-firestore-data.js data/books.json test-books-integration --clear
+     node scripts/import-firestore-data.js app/__tests__/test-data/books.json test-books-integration --clear
      ```
 
 5. **Configure Environment Variables**
 
    - Copy the example environment file and fill in your Firebase credentials:
+
      ```sh
      cp .dev.vars.example .dev.vars
      ```
+
    - Edit `.dev.vars` and set the values for:
      - `FIREBASE_CONFIG`
      - `FIREBASE_PROJECT_ID`
@@ -172,6 +176,7 @@ To run the Firestore integration tests, follow these steps **after cloning the p
 
 6. **Run Integration Tests**
    - Your environment is now ready! Run the integration tests:
+
      ```sh
      npx jest app/integration-tests/services/firebase-restapi.integration.test.ts
      ```

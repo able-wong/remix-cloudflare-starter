@@ -11,7 +11,7 @@
 import { config as dotenvConfig } from 'dotenv';
 dotenvConfig({ path: '.dev.vars' });
 import { describe, it, expect, beforeAll } from '@jest/globals';
-import { createFirebaseRestApi } from '~/services/firebase-restapi';
+import { createFirebaseRestApi } from '../../../services/firebase-restapi';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -30,7 +30,7 @@ const mockLogger = {
 };
 
 // Load test data from books.json
-const booksJsonPath = resolve(__dirname, '../../../data/books.json');
+const booksJsonPath = resolve(__dirname, '../../test-data/books.json');
 const testBooks: Array<Record<string, unknown>> = JSON.parse(
   readFileSync(booksJsonPath, 'utf-8'),
 );

@@ -3,8 +3,8 @@ import {
   FirebaseRestApi,
   createFirebaseRestApi,
   convertToFirestoreDocument,
-} from '../../services/firebase-restapi';
-import type { Logger } from '../../utils/logger';
+} from '../../../services/firebase-restapi';
+import type { Logger } from '../../../utils/logger';
 
 describe('FirebaseRestApi', () => {
   const mockConfig = {

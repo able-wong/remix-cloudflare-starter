@@ -1,5 +1,11 @@
 {
 	"files.associations": {
 		"wrangler.json": "jsonc"
-	}
+	},
+	"typescript.preferences.includePackageJsonAutoImports": "auto",
+	"typescript.suggest.autoImports": true,
+	"typescript.preferences.importModuleSpecifier": "relative",
+	"typescript.validate.enable": true,
+	"typescript.preferences.experimentalDecorators": true,
+	"typescript.tsserver.experimental.enableProjectDiagnostics": true
 }

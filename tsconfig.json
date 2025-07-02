@@ -8,10 +8,7 @@
     "**/.client/**/*.tsx"
   ],
   "exclude": [
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/__tests__/**/*",
-    "**/integration-tests/**/*"
+    "node_modules"
   ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],

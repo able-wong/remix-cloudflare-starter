@@ -28,7 +28,7 @@ jest.mock('pino', () => {
 });
 
 // Mock env module
-jest.mock('../../utils/env', () => ({
+jest.mock('../../../utils/env', () => ({
   getClientEnv: jest.fn(() => ({ APP_NAME: 'test-app' })),
 }));
 
@@ -36,8 +36,8 @@ import {
   LoggerFactory,
   createContextLogger,
   type LogContext,
-} from '../../utils/logger';
-import { getClientEnv } from '../../utils/env';
+} from '../../../utils/logger';
+import { getClientEnv } from '../../../utils/env';
 
 describe('Logger', () => {
   beforeEach(() => {
