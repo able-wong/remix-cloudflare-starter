@@ -13,3 +13,6 @@ FIREBASE_PROJECT_ID="your-project-id"
 # Use the complete JSON (all fields are required for authentication)
 FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"your-project-id","private_key_id":"abc123...","private_key":"-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC...\n-----END PRIVATE KEY-----\n","client_email":"firebase-adminsdk-xyz@your-project.iam.gserviceaccount.com","client_id":"123456789","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://oauth2.googleapis.com/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_x509_cert_url":"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-xyz%40your-project.iam.gserviceaccount.com"}
 
+# AI Configuration (for Vercel AI SDK with Google)
+GOOGLE_GENERATIVE_AI_API_KEY=FROM_GOOGLE_AI_STUDIO
+GOOGLE_GENERATIVE_AI_MODEL_NAME=gemini-1.5-flash

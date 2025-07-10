@@ -26,15 +26,18 @@
     "test-cloudflare": "node scripts/test-cloudflare-config.js"
   },
   "dependencies": {
+    "@ai-sdk/google": "^1.2.22",
     "@remix-run/cloudflare": "^2.16.6",
     "@remix-run/cloudflare-pages": "^2.16.6",
     "@remix-run/react": "^2.16.6",
+    "ai": "^4.3.17",
     "firebase": "^11.8.1",
     "firebase-admin": "^12.7.0",
     "isbot": "^4.1.0",
     "pino": "^9.7.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250528.0",
