@@ -186,7 +186,7 @@ npm run deploy
 - ✅ Set maximum token limits
 - ✅ Log requests for monitoring
 
-## � Additional Resources
+## 🔗 Additional Resources
 
 - [Vercel AI SDK Documentation](https://sdk.vercel.ai/docs)
 - [Vercel AI SDK Providers](https://sdk.vercel.ai/providers/ai-sdk-providers)
