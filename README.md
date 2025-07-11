@@ -9,6 +9,7 @@ A modern full-stack web application boilerplate featuring **Remix** and **Cloudf
 - **Full-stack capabilities** with Remix server actions and loaders
 - **Global edge deployment** on Cloudflare Pages
 - **Optional Firebase integration** for authentication, database, and storage
+- **Optional AI features** with Vercel AI
 - **Modern UI** with TailwindCSS v4 + DaisyUI v5
 - **Type safety** with TypeScript
 - **Testing setup** with Jest
@@ -21,6 +22,7 @@ A modern full-stack web application boilerplate featuring **Remix** and **Cloudf
 3. **Business logic** - Add services in `app/services/`
 4. **Add tests** - Create tests in `app/__tests__/`
 5. **Setup Firebase** (optional) - See [FIREBASE_SETUP.md](./FIREBASE_SETUP.md) for complete configuration
+6. **Setup AI** (optional) - See [AI.md](./AI.md) for Vercel AI SDK configuration
 
 ## Prerequisites
 
