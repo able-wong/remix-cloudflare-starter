@@ -149,8 +149,8 @@ When deploying to Cloudflare Pages, add these environment variables in your dash
 3. Add the following variables:
 
 ```env
-GOOGLE_GENERATIVE_AI_API_KEY = your_actual_api_key
-GOOGLE_GENERATIVE_AI_MODEL_NAME = gemini-1.5-flash
+GOOGLE_GENERATIVE_AI_API_KEY=your_actual_api_key
+GOOGLE_GENERATIVE_AI_MODEL_NAME=gemini-1.5-flash
 ```
 
 > 🔒 **Security**: Environment variables in Cloudflare Pages are encrypted and only available to your application.
