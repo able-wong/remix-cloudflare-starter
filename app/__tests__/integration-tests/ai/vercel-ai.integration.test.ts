@@ -33,6 +33,8 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
 
 describe('Vercel AI Package Integration Tests', () => {
+  // we are getting these env vars from process.env in jest environment.
+  // for remix app, please use getClientEnv or getServerEnv in env.ts to access these variables.
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const modelName = process.env.GOOGLE_GENERATIVE_AI_MODEL_NAME;
   let model: ReturnType<ReturnType<typeof createGoogleGenerativeAI>>;

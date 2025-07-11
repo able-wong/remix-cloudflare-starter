@@ -9,7 +9,8 @@ applyTo: '**/*.ts,**/*.tsx'
 - **Framework**: Remix on Cloudflare Pages
 - **Languages**: TypeScript, React 18
 - **Styling**: TailwindCSS v4 with DaisyUI v5
-- **Backend**: Optional Firebase (auth, database, storage)
+- **Backend**: Optional Firebase (auth, database, storage), Vercel AI for AI features
+- **Testing**: Jest for unit tests, integration tests in `app/__tests__/integration-tests/`
 - **Build Tool**: Vite
 
 ## Core Development Protocol
