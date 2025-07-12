@@ -40,6 +40,7 @@ applyTo: '**/*.ts,**/*.tsx'
 - **Auth Implementation**: Only use `onAuthStateChanged`, never `getCurrentUser()` - always check loading state before redirects to prevent loops
 - **Auth Debugging**: Verify `console.log(useLoaderData().ENV.FIREBASE_CONFIG)` exists, check `onAuthStateChanged` fires, use `useNavigate()` never `window.location`
 - **Auth Setup Verification**: Always run `npm run test-firebase` to verify Auth is enabled - guide user to enable in Firebase Console if test fails
+- **AI Setup Verification**: Always run `npm run test-ai` to verify AI is configured - guide user to set up API key and model name if test fails
 - **Environment Setup**: Run `npm run test-firebase` first to determine what needs fixing
   - NEVER overwrite existing `.dev.vars` - always check its content first
   - Guide user to fix specific missing/invalid variables based on test results
@@ -83,6 +84,7 @@ applyTo: '**/*.ts,**/*.tsx'
 
 - **Firebase data issues** → `npm run fetch-firebase collection-name` (see Common Pitfalls section)
 - **Deployment issues** → `npm run test-cloudflare` (mandatory pre-deployment check)
+- **AI/Gemini issues** → `npm run test-ai` (diagnose AI configuration and connectivity)
 - **Build/type errors** → `npm test && npm run typecheck && npm run lint`
 
 ### Component Priority
@@ -96,6 +98,7 @@ applyTo: '**/*.ts,**/*.tsx'
 - `npm test && npm run typecheck && npm run lint` - Required validation
 - `npm run test-cloudflare` - REQUIRED before deployment
 - `npm run test-firebase` - Diagnose Firebase issues
+- `npm run test-ai` - Diagnose AI/Gemini configuration issues
 - `npm run fetch-firebase collection-name` - Inspect Firestore data
 - `npm run deploy` - Deploy to Cloudflare Pages
 
@@ -117,6 +120,32 @@ Firebase provides authentication, database, and storage. Only needed when using 
 - Run `npm run test-firebase` to identify missing/invalid variables
 - Guide user to fix specific issues based on test results
 - Required variables: `FIREBASE_CONFIG`, `FIREBASE_PROJECT_ID`, `FIREBASE_SERVICE_ACCOUNT_KEY`
+
+### AI Streaming UI Implementation
+
+**Setup Commands:**
+
+- `npm run test-ai` - **ALWAYS run first** to diagnose AI configuration and connectivity
+- Required variables: `GOOGLE_GENERATIVE_AI_API_KEY`, `GOOGLE_GENERATIVE_AI_MODEL_NAME`
+
+**Strategy:**
+
+1. **Primary**: Use Vercel AI SDK (`useChat` hook + `streamText`) for real-time streaming
+2. **Fallback**: Block UI with loading states if streaming fails
+
+**Key Resources:**
+
+- Vercel AI SDK: https://ai-sdk.dev/docs/foundations/streaming
+- Remix Streaming: https://remix.run/docs/en/main/guides/streaming
+- React useChat: https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat
+
+**Implementation Pattern:**
+
+- **Client-side**: Use `useChat` hook for streaming UI components
+- **Server-side**: Implement `streamText` in Remix actions for AI responses
+- **Error handling**: Always provide fallback UI states for streaming failures
+- **Integration**: Follow Remix data loading patterns with streaming capabilities
+- **Environment**: Use `getServerEnv(context)` to access AI variables in loaders/actions (server-side only)
 
 ## Development Strategy
 
@@ -207,7 +236,7 @@ Firebase provides authentication, database, and storage. Only needed when using 
 - Use `app/utils/env.ts` for environment variable access
 - **Client Environment** (`getClientEnv`): Safe variables exposed to browser (loaders)
 - **Server Environment** (`getServerEnv`): All variables for server-side operations (actions)
-- **Available variables**: `APP_NAME` (optional), Firebase variables (when needed)
+- **Available variables**: `APP_NAME` (optional), Firebase variables (when needed), AI variables (server-side only for security)
 
 ## React & Component Architecture
 
