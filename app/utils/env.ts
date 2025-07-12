@@ -18,6 +18,9 @@ export interface ClientEnv {
 export interface ServerEnv {
   FIREBASE_CONFIG?: string;
   FIREBASE_PROJECT_ID?: string;
+  FIREBASE_SERVICE_ACCOUNT_KEY?: string;
+  GOOGLE_GENERATIVE_AI_API_KEY?: string;
+  GOOGLE_GENERATIVE_AI_MODEL_NAME?: string;
 }
 
 type ClientEnvKey = 'FIREBASE_CONFIG' | 'APP_NAME';
@@ -42,11 +45,15 @@ interface CloudflareContext {
  * Optional Environment Variables:
  * - FIREBASE_CONFIG: JSON string containing Firebase configuration (only required for Firebase functionality)
  * - APP_NAME: Application name used for logging (defaults to 'remix-cloudflare-app')
+ * - GOOGLE_GENERATIVE_AI_API_KEY: Gemini API key (only required for AI functionality)
+ * - GOOGLE_GENERATIVE_AI_MODEL_NAME: Gemini model name (only required for AI functionality)
  *
  * Example .env file:
  * ```
  * FIREBASE_CONFIG={"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}
  * APP_NAME=my-awesome-app
+ * GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key_here
+ * GOOGLE_GENERATIVE_AI_MODEL_NAME=gemini-1.5-flash
  * ```
  */
 export function getClientEnv(context: CloudflareContext): ClientEnv {
@@ -89,6 +96,9 @@ export function getClientEnv(context: CloudflareContext): ClientEnv {
  * Optional Environment Variables:
  * - FIREBASE_CONFIG: JSON string containing Firebase configuration (only required for Firebase functionality)
  * - FIREBASE_PROJECT_ID: Firebase Project ID (only required for Firebase functionality)
+ * - FIREBASE_SERVICE_ACCOUNT_KEY: Firebase service account key (only required for Firebase functionality)
+ * - GOOGLE_GENERATIVE_AI_API_KEY: Gemini API key (only required for AI functionality)
+ * - GOOGLE_GENERATIVE_AI_MODEL_NAME: Gemini model name (only required for AI functionality)
  */
 export function getServerEnv(context: CloudflareContext): ServerEnv {
   const getEnvVar = (key: ServerEnvKey): string | undefined => {
@@ -102,5 +112,10 @@ export function getServerEnv(context: CloudflareContext): ServerEnv {
   return {
     FIREBASE_CONFIG: getEnvVar('FIREBASE_CONFIG'),
     FIREBASE_PROJECT_ID: getEnvVar('FIREBASE_PROJECT_ID'),
+    FIREBASE_SERVICE_ACCOUNT_KEY: getEnvVar('FIREBASE_SERVICE_ACCOUNT_KEY'),
+    GOOGLE_GENERATIVE_AI_API_KEY: getEnvVar('GOOGLE_GENERATIVE_AI_API_KEY'),
+    GOOGLE_GENERATIVE_AI_MODEL_NAME: getEnvVar(
+      'GOOGLE_GENERATIVE_AI_MODEL_NAME',
+    ),
   };
 }

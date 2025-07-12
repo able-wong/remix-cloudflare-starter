@@ -23,7 +23,8 @@
     "import-firestore": "node scripts/import-firestore-data.js",
     "fetch-firebase": "node scripts/firebase-data-fetcher.js",
     "test-firebase": "node scripts/test-firebase-config.js",
-    "test-cloudflare": "node scripts/test-cloudflare-config.js"
+    "test-cloudflare": "node scripts/test-cloudflare-config.js",
+    "test-ai": "node scripts/test-ai-config.js"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.22",
