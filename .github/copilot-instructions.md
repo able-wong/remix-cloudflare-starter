@@ -145,7 +145,7 @@ Firebase provides authentication, database, and storage. Only needed when using 
 - **Server-side**: Implement `streamText` in Remix actions for AI responses
 - **Error handling**: Always provide fallback UI states for streaming failures
 - **Integration**: Follow Remix data loading patterns with streaming capabilities
-- **Environment**: Use `getServerEnv(context)` to access AI variables in loaders/actions
+- **Environment**: Use `getServerEnv(context)` to access AI variables in loaders/actions (server-side only)
 
 ## Development Strategy
 
@@ -236,7 +236,7 @@ Firebase provides authentication, database, and storage. Only needed when using 
 - Use `app/utils/env.ts` for environment variable access
 - **Client Environment** (`getClientEnv`): Safe variables exposed to browser (loaders)
 - **Server Environment** (`getServerEnv`): All variables for server-side operations (actions)
-- **Available variables**: `APP_NAME` (optional), Firebase variables (when needed), AI variables (when needed)
+- **Available variables**: `APP_NAME` (optional), Firebase variables (when needed), AI variables (server-side only for security)
 
 ## React & Component Architecture
 

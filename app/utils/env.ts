@@ -45,15 +45,11 @@ interface CloudflareContext {
  * Optional Environment Variables:
  * - FIREBASE_CONFIG: JSON string containing Firebase configuration (only required for Firebase functionality)
  * - APP_NAME: Application name used for logging (defaults to 'remix-cloudflare-app')
- * - GOOGLE_GENERATIVE_AI_API_KEY: Gemini API key (only required for AI functionality)
- * - GOOGLE_GENERATIVE_AI_MODEL_NAME: Gemini model name (only required for AI functionality)
  *
  * Example .env file:
  * ```
  * FIREBASE_CONFIG={"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}
  * APP_NAME=my-awesome-app
- * GOOGLE_GENERATIVE_AI_API_KEY=your_gemini_api_key_here
- * GOOGLE_GENERATIVE_AI_MODEL_NAME=gemini-1.5-flash
  * ```
  */
 export function getClientEnv(context: CloudflareContext): ClientEnv {

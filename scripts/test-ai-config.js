@@ -203,16 +203,13 @@ class AIConfigTester {
 
       return null;
     }
-  }
-
-  /**
+  }  /**
    * Test text generation
    */
-  async testTextGeneration() {
+  async testTextGeneration(aiSetup) {
     console.log('\n🔍 Testing Text Generation...');
 
     try {
-      const aiSetup = await this.testAIProviderInitialization();
       if (!aiSetup) {
         this.addWarning('Skipping text generation test due to initialization failure');
         return false;
@@ -259,16 +256,13 @@ class AIConfigTester {
 
       return false;
     }
-  }
-
-  /**
+  }  /**
    * Test streaming capabilities
    */
-  async testStreamingCapabilities() {
+  async testStreamingCapabilities(aiSetup) {
     console.log('\n🔍 Testing Streaming Capabilities...');
 
     try {
-      const aiSetup = await this.testAIProviderInitialization();
       if (!aiSetup) {
         this.addWarning('Skipping streaming test due to initialization failure');
         return false;
@@ -456,9 +450,11 @@ class AIConfigTester {
     this.testAIConfig();
 
     // Test AI functionality (only if basic config is valid)
+    let aiSetup = null;
     if (this.errors.length === 0) {
-      await this.testTextGeneration();
-      await this.testStreamingCapabilities();
+      aiSetup = await this.testAIProviderInitialization();
+      await this.testTextGeneration(aiSetup);
+      await this.testStreamingCapabilities(aiSetup);
     }
 
     // Test integration
